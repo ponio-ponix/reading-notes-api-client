@@ -4,10 +4,21 @@ module Api
     before_action :set_book, only: [:index, :create]
 
     def index
-      notes = @book.notes.order(created_at: :desc)
-      render json: notes.as_json(
-        only: [:id, :book_id, :page, :quote, :memo, :created_at]
+      notes, meta = Notes::SearchNotes.call(
+        book_id:   @book.id,
+        query:     params[:q],
+        page_from: params[:page_from],
+        page_to:   params[:page_to],
+        page:      params[:page],   # ★ page も渡す
+        limit:     params[:limit]
       )
+    
+      render json: {
+        notes: notes.as_json(
+          only: [:id, :book_id, :page, :quote, :memo, :created_at]
+        ),
+        meta:  meta
+      }
     end
 
     def create
@@ -34,7 +45,7 @@ module Api
     def set_book
       @book = Book.find_by(id: params[:book_id])
       unless @book
-        render json: { errors: note.errors.full_messages }, status: :unprocessable_entity
+        render json: { error: "Book not found" }, status: :not_found
         return
       end
     end
