@@ -7,3 +7,12 @@
 #   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
+book = Book.first
+
+12.times do |i|
+  book.notes.create!(
+    page:  i + 1,
+    quote: "引用 #{i + 1} のテキストです。",
+    memo:  "メモ #{i + 1}"
+  )
+end

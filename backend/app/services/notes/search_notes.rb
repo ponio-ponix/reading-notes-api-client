@@ -4,42 +4,80 @@ module Notes
     DEFAULT_LIMIT = 50
     MAX_LIMIT     = 200
 
+    # ==== 公開インターフェース ====
+    # Controller からはここだけ呼ぶ
     def self.call(book_id:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
-      # 1. ベーススコープ
-      rel = Note.where(book_id: book_id)
+      # ① 入力を Service 内部用に正規化
+      params = normalize_params(
+        book_id: book_id,
+        query: query,
+        page_from: page_from,
+        page_to: page_to,
+        page: page,
+        limit: limit
+      )
 
-      # 2. ページ範囲フィルタ
-      if page_from.present?
-        rel = rel.where("page >= ?", page_from.to_i)
+      # ② 検索条件を組み立てる
+      rel = build_scope(params)
+
+      # ③ 件数カウント
+      total_count = rel.count
+
+      # ④ ページネーション適用
+      records, meta = paginate(rel, params[:page], params[:limit], total_count)
+
+      [records, meta]
+    end
+
+    # ==== ここから下は private：内部実装 ====
+
+    # Controller 由来の値（文字列・nil・変な値）を
+    # Service 内部で扱いやすい形にそろえる
+    def self.normalize_params(book_id:, query:, page_from:, page_to:, page:, limit:)
+      page_i  = page.to_i
+      page_i  = 1 if page_i <= 0
+
+      {
+        book_id:   book_id,
+        query:     query&.to_s&.strip,
+        page_from: page_from.present? ? page_from.to_i : nil,
+        page_to:   page_to.present?   ? page_to.to_i   : nil,
+        page:      page_i,
+        limit:     normalize_limit(limit)
+      }
+    end
+    private_class_method :normalize_params
+
+    # 正規化済み params から ActiveRecord::Relation を作る
+    def self.build_scope(params)
+      rel = Note.where(book_id: params[:book_id])
+
+      if params[:page_from]
+        rel = rel.where("page >= ?", params[:page_from])
       end
 
-      if page_to.present?
-        rel = rel.where("page <= ?", page_to.to_i)
+      if params[:page_to]
+        rel = rel.where("page <= ?", params[:page_to])
       end
 
-      # 3. キーワード検索（quote / memo）
-      if query.present?
-        q = "%#{query.strip}%"
+      if params[:query].present?
+        q = "%#{params[:query]}%"
         rel = rel.where("quote ILIKE :q OR memo ILIKE :q", q: q)
       end
 
-      # 4. 件数カウント（ページネーション前）
-      total_count = rel.count
+      rel
+    end
+    private_class_method :build_scope
 
-      # 5. page / limit 決定
-      page = page.to_i
-      page = 1 if page <= 0
-
-      per = normalize_limit(limit)
+    # ページネーションだけを担当する
+    def self.paginate(rel, page, per, total_count)
       offset = (page - 1) * per
 
-      # 6. 実際のレコード
       records = rel
         .order(created_at: :desc)
         .offset(offset)
         .limit(per)
 
-      # 7. meta 情報
       meta = {
         total_count: total_count,
         page:        page,
@@ -47,10 +85,11 @@ module Notes
         total_pages: (total_count.to_f / per).ceil
       }
 
-      # 8. 2つ返す
       [records, meta]
     end
+    private_class_method :paginate
 
+    # limit の正規化だけ担当
     def self.normalize_limit(raw)
       n = raw.to_i
       return DEFAULT_LIMIT if n <= 0

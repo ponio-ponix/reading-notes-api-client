@@ -15,12 +15,25 @@ type Note = {
   created_at: string
 }
 
+type NotesMeta = {
+  total_count: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+type NotesIndexResponse = {
+  notes: Note[]
+  meta: NotesMeta
+}
+
 function App() {
   const [books, setBooks] = useState<Book[]>([])
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
 
-  const [page, setPage] = useState<string>("")
+  // フォーム用
+  const [notePage, setNotePage] = useState<string>("")
   const [quote, setQuote] = useState<string>("")
   const [memo, setMemo] = useState<string>("")
 
@@ -29,6 +42,12 @@ function App() {
 
   const [newTitle, setNewTitle] = useState("")
   const [newAuthor, setNewAuthor] = useState("")
+
+  // 検索 & ページネーション
+  const [searchQuery, setSearchQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [notesMeta, setNotesMeta] = useState<NotesMeta | null>(null)
+  const PER_PAGE = 10
 
   // 本一覧を取得
   useEffect(() => {
@@ -47,22 +66,36 @@ function App() {
         console.error(err)
         setError(err.message)
       })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 選択中の本のノートを取得
+  // 本が変わったらページ番号をリセット
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedBookId])
+
+  // ノート取得（検索＋ページネーション）
   useEffect(() => {
     if (selectedBookId == null) return
 
     setLoadingNotes(true)
     setError(null)
 
-    fetch(`/api/books/${selectedBookId}/notes`)
+    const params = new URLSearchParams()
+    if (searchQuery.trim() !== "") {
+      params.append("q", searchQuery.trim())
+    }
+    params.append("page", String(currentPage))
+    params.append("limit", String(PER_PAGE))
+
+    fetch(`/api/books/${selectedBookId}/notes?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()
       })
-      .then((data: Note[]) => {
-        setNotes(data)
+      .then((data: NotesIndexResponse) => {
+        setNotes(data.notes)
+        setNotesMeta(data.meta)
       })
       .catch((err) => {
         console.error(err)
@@ -71,7 +104,7 @@ function App() {
       .finally(() => {
         setLoadingNotes(false)
       })
-  }, [selectedBookId])
+  }, [selectedBookId, searchQuery, currentPage])
 
   const handleAddBook = async (e: FormEvent) => {
     e.preventDefault()
@@ -100,11 +133,8 @@ function App() {
 
       const created: Book = await res.json()
 
-      // 本一覧に追加
       setBooks((prev) => [created, ...prev])
-      // 追加した本を選択状態にする
       setSelectedBookId(created.id)
-      // フォームクリア
       setNewTitle("")
       setNewAuthor("")
     } catch (err: any) {
@@ -113,62 +143,6 @@ function App() {
     }
   }
 
-  const handleSaveNote = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-
-    if (selectedBookId == null) {
-      setError("本が選択されていません")
-      return
-    }
-    if (!quote.trim()) {
-      setError("引用は必須です")
-      return
-    }
-
-    // page の変換（空文字なら null）
-    const pageValue =
-      page.trim() === "" ? null : Number.isNaN(Number(page)) ? null : Number(page)
-
-    try {
-      const res = await fetch(`/api/books/${selectedBookId}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          note: {
-            page: pageValue,
-            quote,
-            memo,
-          },
-        }),
-      })
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
-      }
-
-      const created: Note = await res.json()
-
-      // 先頭に追加
-      setNotes((prev) => [created, ...prev])
-
-      // ページだけ +1（数値が入っていた場合）
-      if (pageValue != null) {
-        setPage(String(pageValue + 1))
-      } else {
-        setPage("")
-      }
-      setQuote("")
-      setMemo("")
-    } catch (err: any) {
-      console.error("Failed to create note", err)
-      setError(err.message ?? "Failed to create note")
-    }
-  }
-
-  const currentBook = books.find((b) => b.id === selectedBookId) || null
-
-  // 引用保存
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (selectedBookId == null) return
@@ -179,7 +153,7 @@ function App() {
 
     const payload = {
       note: {
-        page: page ? Number(page) : null,
+        page: notePage ? Number(notePage) : null,
         quote: quote.trim(),
         memo: memo.trim() || null,
       },
@@ -197,13 +171,12 @@ function App() {
         return res.json()
       })
       .then((created: Note) => {
-        // 先頭に追加
+        // ローカルの一覧先頭に追加
         setNotes((prev) => [created, ...prev])
 
-        // フォームリセット：ページだけ +1
-        if (page) {
-          const next = Number(page) + 1
-          setPage(String(next))
+        if (notePage) {
+          const next = Number(notePage) + 1
+          setNotePage(String(next))
         }
         setQuote("")
         setMemo("")
@@ -214,6 +187,8 @@ function App() {
       })
   }
 
+  const currentBook = books.find((b) => b.id === selectedBookId) || null
+
   return (
     <div style={{ padding: "16px", maxWidth: 800, margin: "0 auto" }}>
       <h1>読書引用インボックス（MVP）</h1>
@@ -223,27 +198,27 @@ function App() {
         <h2>本一覧</h2>
         {books.length === 0 && <p>まだ本がありません。</p>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {books.map((book) => (
-          <button
-            key={book.id}
-            type="button"
-            onClick={() => setSelectedBookId(book.id)}
-            style={{
-              padding: "4px 8px",
-              borderRadius: 4,
-              border:
-                selectedBookId === book.id
-                  ? "2px solid #007acc"
-                  : "1px solid #ccc",
-              backgroundColor:
-                selectedBookId === book.id ? "#e6f3ff" : "#ffffff",
-              color: "#222",              // ← これを追加
-              cursor: "pointer",
-            }}
-          >
-            {book.title}
-          </button>
-        ))}
+          {books.map((book) => (
+            <button
+              key={book.id}
+              type="button"
+              onClick={() => setSelectedBookId(book.id)}
+              style={{
+                padding: "4px 8px",
+                borderRadius: 4,
+                border:
+                  selectedBookId === book.id
+                    ? "2px solid #007acc"
+                    : "1px solid #ccc",
+                backgroundColor:
+                  selectedBookId === book.id ? "#e6f3ff" : "#ffffff",
+                color: "#222",
+                cursor: "pointer",
+              }}
+            >
+              {book.title}
+            </button>
+          ))}
         </div>
       </section>
 
@@ -271,8 +246,8 @@ function App() {
                 ページ:
                 <input
                   type="number"
-                  value={page}
-                  onChange={(e) => setPage(e.target.value)}
+                  value={notePage}
+                  onChange={(e) => setNotePage(e.target.value)}
                   style={{ marginLeft: 8, width: 80 }}
                   min={1}
                 />
@@ -314,9 +289,24 @@ function App() {
       {/* エラー表示 */}
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
-      {/* ノート一覧 */}
+      {/* ノート一覧 ＋ 検索 ＋ ページネーション */}
       <section>
         <h2>保存済みの引用</h2>
+
+        {/* 検索フォーム */}
+        <div style={{ marginBottom: 8 }}>
+          <input
+            type="text"
+            placeholder="キーワード検索（quote / memo）"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setCurrentPage(1)
+            }}
+            style={{ width: "100%", padding: 4 }}
+          />
+        </div>
+
         {loadingNotes && <p>読み込み中…</p>}
         {!loadingNotes && notes.length === 0 && (
           <p>まだこの本の引用はありません。</p>
@@ -344,6 +334,40 @@ function App() {
             )}
           </div>
         ))}
+
+        {/* ページネーション */}
+        {notesMeta && notesMeta.total_pages > 1 && (
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              前へ
+            </button>
+            <span>
+              {currentPage} / {notesMeta.total_pages}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setCurrentPage((p) =>
+                  Math.min(notesMeta.total_pages, p + 1),
+                )
+              }
+              disabled={currentPage >= notesMeta.total_pages}
+            >
+              次へ
+            </button>
+          </div>
+        )}
       </section>
     </div>
   )
