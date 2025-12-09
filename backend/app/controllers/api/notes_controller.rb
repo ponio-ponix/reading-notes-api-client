@@ -9,7 +9,7 @@ module Api
         query:     params[:q],
         page_from: params[:page_from],
         page_to:   params[:page_to],
-        page:      params[:page],   # ★ page も渡す
+        page:      params[:page],   
         limit:     params[:limit]
       )
     
