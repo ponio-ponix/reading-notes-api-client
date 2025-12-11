@@ -1,9 +1,10 @@
----
 
 ### 3. domain_model.md
 
 ```bash
 cat > docs/domain_model.md << 'EOF'
+
+```
 ## 1. ドメイン概要
 
 このアプリのコアドメインは「読書中の引用メモ」。
