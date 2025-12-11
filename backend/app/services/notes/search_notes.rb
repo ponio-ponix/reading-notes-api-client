@@ -7,7 +7,10 @@ module Notes
     # ==== 公開インターフェース ====
     # Controller からはここだけ呼ぶ
     def self.call(book_id:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
+
+      raise ActiveRecord::RecordNotFound, "book not found" unless Book.exists?(id: book_id)
       # ① 入力を Service 内部用に正規化
+    
       params = normalize_params(
         book_id: book_id,
         query: query,
@@ -34,8 +37,34 @@ module Notes
     # Controller 由来の値（文字列・nil・変な値）を
     # Service 内部で扱いやすい形にそろえる
     def self.normalize_params(book_id:, query:, page_from:, page_to:, page:, limit:)
+      raise ArgumentError, "book_id が数値でない" unless book_id.to_s =~ /\A\d+\z/
+
+      if page.present? && page.to_s !~ /\A\d+\z/
+        raise ArgumentError, "page が “整数でも nil でもない"
+      end
+    
+      if limit.present? && limit.to_s !~ /\A\d+\z/
+        raise ArgumentError, "limit が “整数でも nil でもない"
+      end
+    
+      if page_from.present? && page_from.to_s !~ /\A\d+\z/
+        raise ArgumentError, "page_from / page_to が整数でない"
+      end
+    
+      if page_to.present? && page_to.to_s !~ /\A\d+\z/
+        raise ArgumentError, "page_from / page_to が整数でない"
+      end
+
       page_i  = page.to_i
       page_i  = 1 if page_i <= 0
+      page_from_i  = page_from.present? ? page_from.to_i : nil
+      page_to_i    = page_to.present?   ? page_to.to_i   : nil
+      limit_i      = normalize_limit(limit)
+
+      if page_from_i && page_to_i && page_from_i > page_to_i
+        raise ArgumentError, "page_from must be <= page_to"
+      end
+    
 
       {
         book_id:   book_id,
