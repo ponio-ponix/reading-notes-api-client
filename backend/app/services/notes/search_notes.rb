@@ -69,10 +69,10 @@ module Notes
       {
         book_id:   book_id,
         query:     query&.to_s&.strip,
-        page_from: page_from.present? ? page_from.to_i : nil,
-        page_to:   page_to.present?   ? page_to.to_i   : nil,
+        page_from: page_from_i,
+        page_to:   page_to_i,
         page:      page_i,
-        limit:     normalize_limit(limit)
+        limit:     limit_i
       }
     end
     private_class_method :normalize_params

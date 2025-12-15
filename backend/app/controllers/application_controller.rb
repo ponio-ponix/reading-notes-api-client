@@ -17,10 +17,9 @@ class ApplicationController < ActionController::API
     render json: { errors: [e.message] }, status: :not_found
   end
 
-  # 422 Unprocessable Entity
+  # 422 Unprocessable Entity（Bulk専用）
   def render_bulk_unprocessable(e)
-    render json: { errors: [{ index: e.index, messages: e.messages }] },
-           status: :unprocessable_entity
+    render json: { errors: e.errors }, status: :unprocessable_entity
   end
 
   # 500 Internal Server Error

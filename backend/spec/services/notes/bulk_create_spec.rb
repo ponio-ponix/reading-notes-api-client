@@ -37,8 +37,12 @@ RSpec.describe Notes::BulkCreate do
           expect {
             described_class.call(book_id: book.id, notes_params: params)
           }.to raise_error(Notes::BulkCreate::BulkInvalid) { |e|
-            expect(e.index).to eq 0
-            expect(e.messages).to include("Quote can't be blank")
+            expect(e.errors).to eq([
+              {
+                index: 0,
+                messages: ["Quote can't be blank"]
+              }
+            ])
           }
         }.not_to change { Note.where(book_id: book.id).count }
       end
