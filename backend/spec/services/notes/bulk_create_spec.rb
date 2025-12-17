@@ -34,17 +34,66 @@ RSpec.describe Notes::BulkCreate do
 
       it "BulkInvalid を投げ、1件も作成されない" do
         expect {
-          expect {
-            described_class.call(book_id: book.id, notes_params: params)
-          }.to raise_error(Notes::BulkCreate::BulkInvalid) { |e|
-            expect(e.errors).to eq([
-              {
-                index: 0,
-                messages: ["Quote can't be blank"]
-              }
-            ])
-          }
-        }.not_to change { Note.where(book_id: book.id).count }
+          described_class.call(book_id: book.id, notes_params: params)
+        }.to raise_error(Notes::BulkCreate::BulkInvalid) { |e|
+          expect(e.errors.size).to eq 1
+          expect(e.errors.first[:index]).to eq 0
+          expect(e.errors.first[:messages]).to include("Quote can't be blank")
+        }
+      
+        expect(Note.where(book_id: book.id).count).to eq 0
+      end
+    end
+
+
+    context "前提違反: notes が配列じゃないとき" do
+      it "ArgumentError を投げ、1件も作成されない" do
+        expect {
+          described_class.call(book_id: book.id, notes_params: "x")
+        }.to raise_error(ArgumentError, /notes must be a non-empty array/)
+
+        expect(Note.where(book_id: book.id).count).to eq 0
+      end
+    end
+
+
+    context "前提違反: book が存在しないとき" do
+      it "ActiveRecord::RecordNotFound を投げ、1件も作成されない" do
+        params = [{ page: 1, quote: "ok", memo: nil }]
+
+        expect {
+          described_class.call(book_id: 999_999, notes_params: params)
+        }.to raise_error(ActiveRecord::RecordNotFound)
+
+        expect(Note.where(book_id: book.id).count).to eq 0
+      end
+    end
+
+
+    context "バリデーション失敗: 複数行が invalid のとき" do
+      let(:params) do
+        [
+          { page: 10, quote: "",       memo: nil },        # index 0: quote blank
+          { page: 11, quote: "ok",     memo: nil },        # index 1: ok
+          { page: 12, quote: "ok",     memo: "b" * 2001 }  # index 2: memo too long
+        ]
+      end
+
+      it "BulkInvalid を投げ、errors が複数要素で返る & 1件も作成されない" do
+        expect {
+          described_class.call(book_id: book.id, notes_params: params)
+        }.to raise_error(Notes::BulkCreate::BulkInvalid) { |e|
+          expect(e.errors.size).to eq 2
+
+          # 順序に依存しないで検証（安全）
+          by_index = e.errors.index_by { |h| h[:index] }
+
+          expect(by_index.keys).to contain_exactly(0, 2)
+          expect(by_index[0][:messages]).to include("Quote can't be blank")
+          expect(by_index[2][:messages]).to include("Memo is too long (maximum is 2000 characters)")
+        }
+
+        expect(Note.where(book_id: book.id).count).to eq 0
       end
     end
 

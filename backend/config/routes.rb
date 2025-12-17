@@ -3,7 +3,7 @@ Rails.application.routes.draw do
     resources :books, only: [:index, :create] do
       resources :notes, only: [:index, :create]
 
-      post "notes/bulk_create", to: "notes_bulk#create"
+      post "notes/bulk", to: "notes_bulk#create"
     end
 
     resources :notes, only: [:destroy]
