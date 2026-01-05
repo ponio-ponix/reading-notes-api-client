@@ -4,6 +4,7 @@ class ApplicationController < ActionController::API
   rescue_from Notes::BulkCreate::BulkInvalid, with: :render_bulk_unprocessable
   rescue_from StandardError, with: :render_internal_error if Rails.env.production?
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity
+  rescue_from ActiveRecord::RecordNotDestroyed, with: :render_unprocessable_entity
 
   private
 
@@ -24,6 +25,9 @@ class ApplicationController < ActionController::API
 
   # 500 Internal Server Error
   def render_internal_error(e)
+    logger.error "Internal Server Error: #{e.class} - #{e.message}"
+    logger.error e.backtrace.join("\n") if e.backtrace.present?
+
     render json: { errors: ["Internal server error"] },
            status: :internal_server_error
   end
