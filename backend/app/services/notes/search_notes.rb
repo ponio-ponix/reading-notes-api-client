@@ -8,7 +8,7 @@ module Notes
     # Controller からはここだけ呼ぶ
     def self.call(book_id:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
 
-      raise ActiveRecord::RecordNotFound, "book not found" unless Book.exists?(id: book_id)
+      Book.find(book_id)
       # ① 入力を Service 内部用に正規化
     
       params = normalize_params(

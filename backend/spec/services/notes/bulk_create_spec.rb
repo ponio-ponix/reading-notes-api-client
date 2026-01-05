@@ -122,5 +122,47 @@ RSpec.describe Notes::BulkCreate do
         }.not_to change { Note.where(book_id: book.id).count }
       end
     end
+
+    context "transaction が存在しないと壊れることを検知する" do
+      before do
+        # テスト中のみ、特定の quote で save! を失敗させる callback を追加
+        Note.class_eval do
+          before_save :fail_on_trigger_quote, prepend: true
+
+          def fail_on_trigger_quote
+            if quote == "TRIGGER_SAVE_FAILURE"
+              raise ActiveRecord::RecordInvalid.new(self)
+            end
+          end
+        end
+      end
+
+      after do
+        Note.skip_callback(
+          :save,
+          :before,
+          :fail_on_trigger_quote,
+          prepend: true
+        )
+      end
+
+      let(:params) do
+        [
+          { page: 1, quote: "valid quote 1", memo: nil },
+          { page: 2, quote: "TRIGGER_SAVE_FAILURE", memo: nil },  # save! 時に失敗
+          { page: 3, quote: "valid quote 3", memo: nil }
+        ]
+      end
+
+      it "save! 失敗時に transaction が rollback し、DB に 1件も作成されない" do
+        expect {
+          begin
+            described_class.call(book_id: book.id, notes_params: params)
+          rescue ActiveRecord::RecordInvalid
+            # save! の例外は想定内（無視）
+          end
+        }.not_to change { Note.count }
+      end
+    end
   end
 end

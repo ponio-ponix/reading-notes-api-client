@@ -180,12 +180,18 @@ Bulk Create では、どの入力行が invalid だったかを返す必要が�
   - 重複禁止の要件が出た場合に、(book_id, page, quote) に unique index を追加する
 
 
+## 8 同時実行時のふるまい（簡易メモ）
 
+- 同時 Bulk Create の整合性は “atomic(全成功/全失敗)” は transaction が担保
+- 競合時はDBのロック/分離レベルに依存。必要なら明示ロック
 
-## 8. 同時実行時のふるまい（簡易メモ）
+## 8.1 (将来)同時実行時のふるまい（簡易メモ）
 
-- 同一 book に対する同時 Bulk Create は、DB ロックにより順序実行される
-- Book 削除と Bulk Create が競合した場合、FK により Bulk が失敗する
+- 同一 book に対する同時 Bulk Create は、
+  Book 行に対する明示ロック（例: SELECT ... FOR UPDATE）を取得することで
+  アプリケーションレベルで順序実行を保証する
+- Book 削除と Bulk Create が競合した場合、
+  外部キー制約（ON DELETE RESTRICT）により Bulk Create が失敗する
 
 詳細は transaction_policy.md を参照。
 

@@ -14,15 +14,22 @@ class Api::NotesBulkController < ApplicationController
 
   private
 
-  # Request の形（notes が配列 / 要素が permit 可能）を HTTP 層で保証する。
-  # 形が壊れている入力は 400（Bad Request）に落とし、業務ルールは Service に寄せる。
+  # HTTP レイヤで Request の形だけをチェックする。
+  # notes が配列であること、各要素が permit できる形であることを保証する。
+  #
+  # 形が壊れている場合は例外を投げ、
+  # 400 にするかどうかなどの HTTP レスポンスは
+  # ApplicationController 側の rescue に任せる。
+  #
+  # バリデーションや一括作成のルールは Service に寄せる。
 
   def notes_params
-    raw = params.require(:notes)
-    raise ActionController::BadRequest, "notes must be an array" unless raw.is_a?(Array)
+    raw = params[:notes]
+    raise ArgumentError, "notes must be provided" if raw.nil?
+    raise ArgumentError, "notes must be an array" unless raw.is_a?(Array)
   
     raw.map.with_index do |note, i|
-      raise ActionController::BadRequest, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
+      raise ArgumentError, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
       note.permit(:page, :quote, :memo).to_h
     end
   end
