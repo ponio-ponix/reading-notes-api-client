@@ -4,12 +4,7 @@ module Api
     before_action :set_book, only: [:create]
 
     def create
-      note = Notes::Create.call(
-        book_id: @book.id,
-        page:    note_params[:page],
-        quote:   note_params[:quote],
-        memo:    note_params[:memo]
-      )
+      note = @book.notes.create!(note_params)
       render json: note.as_json(only: [:id, :book_id, :page, :quote, :memo, :created_at]),
              status: :created
     end
@@ -23,7 +18,7 @@ module Api
     private
 
     def set_book
-      @book = Book.find_by(id: params[:book_id])
+      @book = Book.find(params[:book_id])
     end
 
     def note_params

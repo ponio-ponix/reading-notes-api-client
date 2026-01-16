@@ -232,5 +232,93 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
       expect(meta[:limit]).to eq Notes::SearchNotes::MAX_LIMIT
     end
+
+    describe '空白区切り AND 検索' do
+      it 'q="ラーメン おすすめ" で両方のキーワードを含む note だけ返す' do
+        note_both = Note.create!(
+          book:  book,
+          page:  50,
+          quote: "おいしいラーメン",
+          memo:  "おすすめの店"
+        )
+        note_only_ramen = Note.create!(
+          book:  book,
+          page:  51,
+          quote: "ラーメン",
+          memo:  "普通"
+        )
+        note_only_osusume = Note.create!(
+          book:  book,
+          page:  52,
+          quote: "おすすめ",
+          memo:  "カレー"
+        )
+
+        notes, meta = described_class.call(
+          book_id:   book.id,
+          query:     "ラーメン おすすめ",
+          page_from: nil,
+          page_to:   nil,
+          page:      1,
+          limit:     50
+        )
+
+        expect(notes).to include(note_both)
+        expect(notes).not_to include(note_only_ramen, note_only_osusume)
+      end
+
+      it 'q="   "（空白のみ）は未指定扱いで全件返す' do
+        notes, meta = described_class.call(
+          book_id:   book.id,
+          query:     "   ",
+          page_from: nil,
+          page_to:   nil,
+          page:      1,
+          limit:     50
+        )
+
+        expect(notes.size).to eq Note.where(book_id: book.id).count
+      end
+
+      it 'q="ラーメン  おすすめ"（連続空白）でも正しく AND 検索される' do
+        note_both = Note.create!(
+          book:  book,
+          page:  60,
+          quote: "おいしいラーメンおすすめ",
+          memo:  "test"
+        )
+
+        notes, meta = described_class.call(
+          book_id:   book.id,
+          query:     "ラーメン  おすすめ",  # 連続空白
+          page_from: nil,
+          page_to:   nil,
+          page:      1,
+          limit:     50
+        )
+
+        expect(notes).to include(note_both)
+      end
+
+      it 'memo=NULL の note でも quote に両トークンが入っていればヒット' do
+        note_with_null_memo = Note.create!(
+          book:  book,
+          page:  70,
+          quote: "おいしいラーメンのおすすめ店",
+          memo:  nil
+        )
+
+        notes, meta = described_class.call(
+          book_id:   book.id,
+          query:     "ラーメン おすすめ",
+          page_from: nil,
+          page_to:   nil,
+          page:      1,
+          limit:     50
+        )
+
+        expect(notes).to include(note_with_null_memo)
+      end
+    end
   end
 end

@@ -62,7 +62,7 @@
 
 ### 2.2 Notes 検索（GET /api/books/:book_id/notes）
 
-- Controller（`Api::NotesController#index`）
+- Controller（`Api::NotesSearchController#index`）
   - params を受け取り、`Notes::SearchNotes.call(...)` に渡す
   - 戻り値の `notes, meta` を JSON に変換
 - Service（`Notes::SearchNotes`）
@@ -131,5 +131,31 @@
   - 例：
     - `Notes::NoteQuery.new(Note.all).by_book(book_id).keyword(q).page_range(from:, to:).relation`
 
-MVP の段階では無理に導入しない。  
+MVP の段階では無理に導入しない。
 `SearchNotes` が 150〜200行に近づいてきたら検討する。
+
+---
+
+## 4. TODO: フロントエンド下書き（Draft）UI の将来構想
+
+### 動機
+
+- 読書中の高速連続入力を実現したい
+- 複数ノートを一括保存し、行単位でエラー表示したい
+- Bulk Create API（`POST /notes/bulk`）のフロント統合が必要
+
+### 将来案
+
+- **A) クライアントローカル下書き**
+  - localStorage / state で下書きを保持
+  - 「まとめて保存」ボタンで `/notes/bulk` に POST
+  - 422 時は `errors[].index` を下書き行にマッピング
+
+- **B) サーバ側 Draft エンドポイント**
+  - `/draft_notes` を別途設計し、下書き状態を DB 管理
+  - 確定時に `/notes/bulk` へ変換
+
+### 現時点の判断
+
+API 契約・UI 仕様が固まっていないため、今回の PR（AND 検索）からは外した。
+Bulk Create API のバックエンド実装は完了済み。フロント統合は別 PR で対応予定。

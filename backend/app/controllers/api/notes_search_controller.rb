@@ -24,7 +24,7 @@ module Api
     private
 
     def set_book
-      @book = Book.find_by(id: params[:book_id])
+      @book = Book.find(params[:book_id])
     end
   end
 end

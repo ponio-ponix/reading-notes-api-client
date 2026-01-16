@@ -36,9 +36,18 @@
 }
 ```
 
-- page  : ページ番号（整数, 任意）
-- quote : 引用本文（必須, 文字列）
-- memo  : 自分のメモ（任意, 文字列 or null）
+**パラメータ制約**：
+- `quote`（必須、文字列）
+  - 最大長: 1000文字
+  - 空文字列不可
+  - **注意**: 前後の空白は自動削除される（trim処理）。空白のみの文字列は削除後に空になるためバリデーションエラー
+- `memo`（任意、文字列 or null）
+  - 最大長: 2000文字
+  - null 許可
+  - 前後の空白は自動削除される
+- `page`（任意、整数）
+  - 最小値: 1以上
+  - null 許可
 
 #### Response 201 Created
 ```json
@@ -52,30 +61,34 @@
 }
 ```
 
-#### エラー
-- 本が存在しない場合 … 404 Not Found
-- バリデーションエラー … 422 Unprocessable Entity
-- memo  : 自分のメモ（任意, 文字列 or null）
+#### エラーレスポンス
 
-
-### レスポンス 422（バリデーションエラー例）
-
+**404 Not Found（Book が存在しない場合）**
 ```json
 {
-  "errors": {
-    "page": ["must be greater than 0"],
-    "quote": ["can't be blank"]
-  }
+  "errors": ["Couldn't find Book with 'id'=999999"]
 }
 ```
 
-### レスポンス 404（Book が存在しない場合）
+**422 Unprocessable Entity（バリデーションエラー）**
 
+以下の場合にバリデーションエラーが発生：
+- quote が空文字列、または空白のみ（"   " → trim後に ""）
+- quote が1000文字超
+- memo が2000文字超
+- page が1未満、または整数でない
+
+レスポンス例：
 ```json
 {
-  "error": "Book not found"
+  "errors": [
+    "Quote can't be blank",
+    "Memo is too long (maximum is 2000 characters)"
+  ]
 }
 ```
+
+**注意**: エラーメッセージは `errors` 配列で返却される（full_messages形式）
 
 
 
@@ -89,16 +102,35 @@
 
 指定したノートを 1 件削除する。
 
-- Request
-  - パスパラメータ:
-    - id : ノートID
+#### Request
+- パスパラメータ:
+  - `id`: ノートID（整数）
 
-  - Response 204 No Content
-  - ボディなし
+#### Response 204 No Content
+削除成功時は空のボディで 204 を返す。
 
-#### エラー
-  - ノートが存在しない … 404 Not Found
-    - 例: {"error": "Not found"}
+#### エラーレスポンス
+
+**404 Not Found（Note が存在しない場合）**
+```json
+{
+  "errors": ["Couldn't find Note with 'id'=999999"]
+}
+```
+
+指定された ID のノートが存在しない場合、404 エラーが返される。
 
 ---
 
+## TODO: 将来の下書き（Draft）UI 構想
+
+### 動機
+- フロントで「下書き」を持つことで、高速入力・一括保存・行単位エラー表示を実現したい
+
+### 候補案
+- **A) クライアントローカル下書き**: localStorage 等で下書きを保持し、bulk save API で一括送信
+- **B) サーバ側 Draft エンドポイント**: `/draft_notes` 等を別途設計し、下書き状態をサーバで管理
+
+### 現状の判断
+- API 契約が固まっていないため、今回の PR からは除外
+- 将来的に実装する際は、上記候補を比較検討して決定する

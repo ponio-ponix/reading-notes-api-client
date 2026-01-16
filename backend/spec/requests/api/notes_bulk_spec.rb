@@ -53,4 +53,25 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
       end
     end
   end
+
+  describe "成功ケース → 201 を返す" do
+    context "when all notes are valid" do
+      it "creates notes and returns 201" do
+        payload = {
+          notes: [
+            { page: 1, quote: "Q1", memo: "M1" },
+            { page: 2, quote: "Q2", memo: "M2" }
+          ]
+        }
+
+        expect {
+          post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
+        }.to change { Note.count }.by(2)
+
+        expect(response).to have_http_status(:created)
+        json = JSON.parse(response.body)
+        expect(json["notes"].size).to eq(2)
+      end
+    end
+  end
 end

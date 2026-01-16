@@ -68,7 +68,7 @@ module Notes
 
       {
         book_id:   book_id,
-        query:     query&.to_s&.strip,
+        query:     query&.to_s&.strip&.presence,
         page_from: page_from_i,
         page_to:   page_to_i,
         page:      page_i,
@@ -90,8 +90,11 @@ module Notes
       end
 
       if params[:query].present?
-        q = "%#{params[:query]}%"
-        rel = rel.where("quote ILIKE :q OR memo ILIKE :q", q: q)
+        tokens = params[:query].split(/\s+/)
+        tokens.each do |token|
+          pattern = "%#{token}%"
+          rel = rel.where("quote ILIKE :pattern OR memo ILIKE :pattern", pattern: pattern)
+        end
       end
 
       rel
