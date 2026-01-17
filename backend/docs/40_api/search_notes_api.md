@@ -1,7 +1,7 @@
 # ノート一覧取得（検索＋ページネーション対応）
 
 本ドキュメントは、**構造化引用検索** の中核となるエンドポイント  
-`GET /api/books/:book_id/notes` の仕様だけを切り出して定義する。
+`GET /api/books/:book_id/notes_search` の仕様だけを切り出して定義する。
 
 - Base URL（開発）: `http://localhost:3000`
 - Resource: Book に紐づく Note
@@ -13,7 +13,7 @@
 
 ### 1.1 エンドポイント
 
-**GET /api/books/:book_id/notes**
+**GET /api/books/:book_id/notes_search**
 
 ### 1.2 用途
 
@@ -45,7 +45,7 @@
 | `page_from` | integer | 任意 | `nil`      | ページ下限（例: `10` → `page >= 10`）                                |
 | `page_to`   | integer | 任意 | `nil`      | ページ上限（例: `20` → `page <= 20`）                                |
 | `page`      | integer | 任意 | `1`        | 何ページ目か（1 始まり、`page >= 1`）                                |
-| `limit`     | integer | 任意 | `20`       | 1ページあたり件数（`1〜50` の範囲で指定。上限を超えたら 400）       |
+| `limit`     | integer | 任意 | `50`       | 1ページあたり件数（上限 `200`。超えたら `200` にクランプ）         |
 
 ---
 
@@ -57,13 +57,14 @@
 
 - 未指定 or 空文字 → `1` とみなす
 - 数値に変換できない → **400 Bad Request**
-- `page < 1` → **400 Bad Request**
+- `page < 1` → `1` に正規化（エラーにしない）
 
 ### 3.2 `limit`
 
-- 未指定 or 空文字 → `20` とみなす
+- 未指定 or 空文字 → `50` とみなす
 - 数値に変換できない → **400 Bad Request**
-- `limit < 1` または `limit > 50` → **400 Bad Request**
+- `limit < 1` → `50` に正規化（エラーにしない）
+- `limit > 200` → `200` にクランプ（エラーにしない）
 
 ### 3.3 `page_from` / `page_to`
 
@@ -195,13 +196,14 @@ page
 
 - 未指定 → 1
 - 数値でない → 400
-- page < 1 → 400
+- page < 1 → 1 に正規化
 
 limit
 
-- 未指定 → 20
+- 未指定 → 50
 - 数値でない → 400
-- page < 1 → 400
+- limit < 1 → 50 に正規化
+- limit > 200 → 200 にクランプ
 
 ### 4.5.2 offset の計算式
 
