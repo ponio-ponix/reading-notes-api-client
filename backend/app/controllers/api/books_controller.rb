@@ -2,7 +2,7 @@ module Api
   class BooksController < ApplicationController
 
     def index
-      books = Book.all.order(created_at: :desc)
+      books = Book.alive.order(created_at: :desc)
       render json: books.as_json(only: [:id, :title, :author])
     end
 
