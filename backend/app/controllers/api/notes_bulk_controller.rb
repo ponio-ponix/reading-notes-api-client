@@ -1,5 +1,7 @@
 class Api::NotesBulkController < ApplicationController
 
+  before_action :set_book, only: [:create]
+
   def create
     notes = Notes::BulkCreate.call(
       book_id: params[:book_id],
@@ -32,6 +34,10 @@ class Api::NotesBulkController < ApplicationController
       raise ArgumentError, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
       note.permit(:page, :quote, :memo).to_h
     end
+  end
+
+  def set_book
+    @book = Book.alive.find(params[:book_id])
   end
 
 end

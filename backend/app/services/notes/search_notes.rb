@@ -8,8 +8,7 @@ module Notes
     # Controller からはここだけ呼ぶ
     def self.call(book_id:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
 
-      Book.find(book_id)
-      # ① 入力を Service 内部用に正規化
+
     
       params = normalize_params(
         book_id: book_id,
@@ -19,6 +18,8 @@ module Notes
         page: page,
         limit: limit
       )
+      Book.alive.find(params[:book_id])
+      # ① 入力を Service 内部用に正規化
 
       # ② 検索条件を組み立てる
       rel = build_scope(params)
@@ -67,7 +68,7 @@ module Notes
     
 
       {
-        book_id:   book_id,
+        book_id: book_id.to_i,
         query:     query&.to_s&.strip&.presence,
         page_from: page_from_i,
         page_to:   page_to_i,
