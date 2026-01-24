@@ -1,11 +1,10 @@
 module Api
   class NotesSearchController < ApplicationController
 
-    before_action :set_book, only: [:index]
 
     def index
       notes, meta = Notes::SearchNotes.call(
-        book_id:   @book.id,
+        book_id:   params[:book_id],
         query:     params[:q],
         page_from: params[:page_from],
         page_to:   params[:page_to],
@@ -21,10 +20,7 @@ module Api
       }
     end
 
-    private
 
-    def set_book
-      @book = Book.alive.find(params[:book_id])
-    end
+
   end
 end
