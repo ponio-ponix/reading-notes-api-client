@@ -34,7 +34,7 @@ RSpec.describe "Api::NotesController", type: :request do
              params: { note: { page: 1, quote: "   ", memo: "memo" } },
              as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         json = JSON.parse(response.body)
         expect(json["errors"]).to be_an(Array)
         expect(json["errors"]).not_to be_empty

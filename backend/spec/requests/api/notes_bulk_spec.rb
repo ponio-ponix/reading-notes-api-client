@@ -55,7 +55,7 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
         post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
       }.not_to change { Note.count }
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
 
       json = JSON.parse(response.body, symbolize_names: true)
       expect(json).to have_key(:errors)

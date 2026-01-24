@@ -17,9 +17,10 @@
 ## DB / Rails の整合
 - 外部キーは `on_delete: :restrict` を維持する  
   - `notes.book_id -> books.id (RESTRICT)`
-- Rails の関連（`dependent`）は DB の RESTRICT 方針に揃える（後続対応）
-  - 現状の `dependent: :destroy` は方針と矛盾するため、将来的に解消する
-
+- Rails の関連は DB の RESTRICT 方針に揃える  
+  - `Book has_many :notes`（`dependent: :destroy` は使用しない）
+  - 物理削除の cascade をアプリ層でも発生させない
+  
 ## スコープ方針
 - `default_scope` は使用しない（暗黙条件の漏れ・意図しない副作用を避けるため）
 - 取得は明示的な scope を使う（例：`Book.active`）
