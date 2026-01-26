@@ -1,6 +1,5 @@
 class Api::NotesBulkController < ApplicationController
 
-  before_action :set_book, only: [:create]
 
   # Book の存在確認は Notes::BulkCreate 側で行う（Controller で二重にDBを叩かない）
   def create

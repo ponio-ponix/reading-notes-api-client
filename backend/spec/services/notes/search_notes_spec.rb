@@ -112,11 +112,11 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
       pages = notes.map(&:page)
 
-      expect(pages).to include(15, 20)
+      expect(pages).to contain_exactly(10, 15, 20)
       expect(pages).not_to include(5, 25)
     end
 
-    it 'page_from が page_to より大きい場合は ArgumentError を投げる' do
+    it 'page_from が page_to より大きい場合は BadRequest を投げる' do
       expect {
         described_class.call(
           book_id:   book.id,
@@ -126,10 +126,10 @@ RSpec.describe Notes::SearchNotes, type: :service do
           page:      1,
           limit:     10
         )
-      }.to raise_error(ArgumentError, /page_from must be <= page_to/)
+      }.to raise_error(ApplicationErrors::BadRequest, /page_from must be <= page_to/)
     end
 
-    it 'page が整数文字列でない場合は ArgumentError を投げる' do
+    it 'page が整数文字列でない場合は BadRequest を投げる' do
       expect {
         described_class.call(
           book_id:   book.id,
@@ -139,10 +139,10 @@ RSpec.describe Notes::SearchNotes, type: :service do
           page:      "abc",
           limit:     10
         )
-      }.to raise_error(ArgumentError, /page が/)
+      }.to raise_error(ApplicationErrors::BadRequest, /page が/)
     end
 
-    it 'page_from / page_to が整数文字列でない場合は ArgumentError を投げる' do
+    it 'page_from / page_to が整数文字列でない場合は BadRequest を投げる' do
       expect {
         described_class.call(
           book_id:   book.id,
@@ -152,7 +152,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
           page:      1,
           limit:     10
         )
-      }.to raise_error(ArgumentError, /page_from/)
+      }.to raise_error(ApplicationErrors::BadRequest, /page_from/)
     end
 
     it 'page <= 0 の場合は 1 に正規化される' do
@@ -231,6 +231,21 @@ RSpec.describe Notes::SearchNotes, type: :service do
       )
 
       expect(meta[:limit]).to eq Notes::SearchNotes::MAX_LIMIT
+    end
+
+    it 'soft-deleted book の場合は ActiveRecord::RecordNotFound を投げる' do
+      book.update!(deleted_at: Time.current)
+    
+      expect {
+        described_class.call(
+          book_id:   book.id,
+          query:     nil,
+          page_from: nil,
+          page_to:   nil,
+          page:      1,
+          limit:     10
+        )
+      }.to raise_error(ActiveRecord::RecordNotFound)
     end
 
     describe '空白区切り AND 検索' do
