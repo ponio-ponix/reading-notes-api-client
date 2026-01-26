@@ -27,15 +27,22 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
   describe "404 を返す" do
     it "returns 404 when book is soft-deleted" do
       book.update!(deleted_at: Time.current)
-
-      post "/api/books/#{book.id}/notes/bulk",
-        params: {
-          notes: [
-            { page: 1, quote: "q", memo: "m" }
-          ]
-        },
-        as: :json
-
+    
+      expect {
+        post "/api/books/#{book.id}/notes/bulk",
+             params: { notes: [{ page: 1, quote: "q", memo: "m" }] },
+             as: :json
+      }.not_to change { Note.count }
+    
+      expect(response).to have_http_status(:not_found)
+    end
+    it "returns 404 when book does not exist" do
+      expect {
+        post "/api/books/999_999/notes/bulk",
+             params: { notes: [{ page: 1, quote: "q", memo: "m" }] },
+             as: :json
+      }.not_to change { Note.count }
+  
       expect(response).to have_http_status(:not_found)
     end
   end
@@ -70,25 +77,53 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
     end
   end
 
-  describe "ArgumentError → 400 を返す" do
-    context "notes が空配列のとき" do
-      let(:payload) { { notes: [] } }
+  describe "BadRequest → 400 を返す" do
+    it "notes が nil → 400 'notes must be provided' (DB変化なし)" do
+      expect {
+        post "/api/books/#{book.id}/notes/bulk", params: {}, as: :json
+      }.not_to change { Note.count }
 
-      it "HTTP 400 を返し、レスポンスが errors 配列形式で、DB に 1件も作成されない" do
-        expect {
-          post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
-        }.not_to change { Note.count }
+      expect(response).to have_http_status(:bad_request)
 
-        expect(response).to have_http_status(:bad_request)
+      json = JSON.parse(response.body)
+      expect(json["errors"]).to be_an(Array)
+      expect(json["errors"].first).to include("notes must be provided")
+    end
 
-        json = JSON.parse(response.body, symbolize_names: true)
-        expect(json).to have_key(:errors)
-        expect(json[:errors]).to be_an(Array)
-        expect(json[:errors].size).to be >= 1
-        expect(json[:errors].first).to be_a(String)
-      end
+    it "notes が配列じゃない → 400 'notes must be an array' (DB変化なし)" do
+      expect {
+        post "/api/books/#{book.id}/notes/bulk", params: { notes: "invalid" }, as: :json
+      }.not_to change { Note.count }
+
+      expect(response).to have_http_status(:bad_request)
+
+      json = JSON.parse(response.body)
+      expect(json["errors"]).to be_an(Array)
+      expect(json["errors"].first).to include("notes must be an array")
+    end
+
+    it "element が object じゃない → 400 'notes[0] must be an object' (DB変化なし)" do
+      expect {
+        post "/api/books/#{book.id}/notes/bulk", params: { notes: ["string"] }, as: :json
+      }.not_to change { Note.count }
+
+      expect(response).to have_http_status(:bad_request)
+
+      json = JSON.parse(response.body)
+      expect(json["errors"]).to be_an(Array)
+      expect(json["errors"].first).to include("notes[0] must be an object")
     end
   end
 
+  describe "二重クエリ回帰テスト" do
+    it "Book の SELECT は1回だけ（bulk）" do
+      payload = { notes: [{ page: 1, quote: "q", memo: "m" }] }
   
+      book_selects = QueryCounter.count_book_selects do
+        post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
+      end
+  
+      expect(book_selects).to eq(1)
+    end
+  end
 end

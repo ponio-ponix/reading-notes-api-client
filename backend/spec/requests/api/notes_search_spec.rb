@@ -27,8 +27,10 @@ RSpec.describe "Notes Search API", type: :request do
         expect(json["meta"]).to be_a(Hash)
 
         # 少なくとも "ruby" を含むやつが返る想定（厳密な検索仕様はここでは縛りすぎない）
-        returned_quotes = json["notes"].map { |n| n["quote"] }
-        expect(returned_quotes.join(" ")).to include("ruby")
+        expect(json["notes"]).not_to be_empty
+        expect(json["notes"]).to all(satisfy { |n|
+          (n["quote"].to_s + " " + n["memo"].to_s).include?("ruby")
+        })
       end
 
       it "can filter by page range (page_from/page_to) when provided" do
@@ -43,15 +45,15 @@ RSpec.describe "Notes Search API", type: :request do
     context "404系" do
       it "returns 404 when book does not exist" do
         get "/api/books/999999/notes_search", params: { q: "ruby" }
-
+      
         expect(response).to have_http_status(:not_found)
       end
 
       it "returns 404 when book is soft-deleted" do
         book.update!(deleted_at: Time.current)
-
+      
         get "/api/books/#{book.id}/notes_search", params: { q: "ruby" }
-
+      
         expect(response).to have_http_status(:not_found)
       end
     end
@@ -79,6 +81,17 @@ RSpec.describe "Notes Search API", type: :request do
         expect(response).to have_http_status(:bad_request)
         expect(json["errors"]).to be_an(Array)
         expect(json["errors"]).not_to be_empty
+      end
+    end
+
+    describe "二重クエリ回帰テスト" do
+      it "Book の SELECT は1回だけ（search）" do
+        # ここで QueryCounter の外側でデータを用意する（すでに before があるなら不要）
+        book_selects = QueryCounter.count_book_selects do
+          get "/api/books/#{book.id}/notes_search", params: { q: "ruby", page: 1, limit: 10 }
+        end
+    
+        expect(book_selects).to eq(1)
       end
     end
   end
