@@ -1,8 +1,10 @@
 class ApplicationController < ActionController::API
-  rescue_from ArgumentError, with: :render_bad_request
+  rescue_from StandardError, with: :render_internal_error if Rails.env.production?
+
+  rescue_from ApplicationErrors::BadRequest, with: :render_bad_request
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from Notes::BulkCreate::BulkInvalid, with: :render_bulk_unprocessable
-  rescue_from StandardError, with: :render_internal_error if Rails.env.production?
+
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity
   rescue_from ActiveRecord::RecordNotDestroyed, with: :render_unprocessable_entity
 

@@ -38,22 +38,22 @@ module Notes
     # Controller 由来の値（文字列・nil・変な値）を
     # Service 内部で扱いやすい形にそろえる
     def self.normalize_params(book_id:, query:, page_from:, page_to:, page:, limit:)
-      raise ArgumentError, "book_id が数値でない" unless book_id.to_s =~ /\A\d+\z/
+      raise ApplicationErrors::BadRequest, "book_id が数値でない" unless book_id.to_s =~ /\A\d+\z/
 
       if page.present? && page.to_s !~ /\A\d+\z/
-        raise ArgumentError, "page が “整数でも nil でもない"
+        raise ApplicationErrors::BadRequest, "page が “整数でも nil でもない"
       end
     
       if limit.present? && limit.to_s !~ /\A\d+\z/
-        raise ArgumentError, "limit が “整数でも nil でもない"
+        raise ApplicationErrors::BadRequest, "limit が “整数でも nil でもない"
       end
     
       if page_from.present? && page_from.to_s !~ /\A\d+\z/
-        raise ArgumentError, "page_from / page_to が整数でない"
+        raise ApplicationErrors::BadRequest, "page_from / page_to が整数でない"
       end
     
       if page_to.present? && page_to.to_s !~ /\A\d+\z/
-        raise ArgumentError, "page_from / page_to が整数でない"
+        raise ApplicationErrors::BadRequest, "page_from / page_to が整数でない"
       end
 
       page_i  = page.to_i
@@ -63,7 +63,7 @@ module Notes
       limit_i      = normalize_limit(limit)
 
       if page_from_i && page_to_i && page_from_i > page_to_i
-        raise ArgumentError, "page_from must be <= page_to"
+        raise ApplicationErrors::BadRequest, "page_from must be <= page_to"
       end
     
 

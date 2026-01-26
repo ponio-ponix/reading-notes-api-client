@@ -27,11 +27,11 @@ class Api::NotesBulkController < ApplicationController
 
   def notes_params
     raw = params[:notes]
-    raise ArgumentError, "notes must be provided" if raw.nil?
-    raise ArgumentError, "notes must be an array" unless raw.is_a?(Array)
+    raise ApplicationErrors::BadRequest, "notes must be provided" if raw.nil?
+    raise ApplicationErrors::BadRequest, "notes must be an array" unless raw.is_a?(Array)
   
     raw.map.with_index do |note, i|
-      raise ArgumentError, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
+      raise ApplicationErrors::BadRequest, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
       note.permit(:page, :quote, :memo).to_h
     end
   end

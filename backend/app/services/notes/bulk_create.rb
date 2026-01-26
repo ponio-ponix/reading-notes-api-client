@@ -14,10 +14,10 @@ module Notes
 
     def self.call(book_id:, notes_params:)
       unless notes_params.is_a?(Array) && notes_params.any?
-        raise ArgumentError, "notes must be a non-empty array"
+        raise ApplicationErrors::BadRequest, "notes must be a non-empty array"
       end
       if notes_params.size > MAX_NOTES_PER_REQUEST
-        raise ArgumentError, "too many notes (max #{MAX_NOTES_PER_REQUEST})"
+        raise ApplicationErrors::BadRequest, "too many notes (max #{MAX_NOTES_PER_REQUEST})"
       end
 
       book  = Book.alive.find(book_id) 
