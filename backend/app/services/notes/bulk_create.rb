@@ -20,7 +20,7 @@ module Notes
         raise ArgumentError, "too many notes (max #{MAX_NOTES_PER_REQUEST})"
       end
 
-      book  = Book.find(book_id)
+      book  = Book.alive.find(book_id) 
 
       notes  = []
       errors = []

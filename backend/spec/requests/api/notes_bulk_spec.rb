@@ -3,6 +3,42 @@ require 'rails_helper'
 RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
   let!(:book) { Book.create!(title: "Test Book", author: "Author") }
 
+  describe "成功ケース → 201 を返す" do
+    context "when all notes are valid" do
+      it "creates notes and returns 201" do
+        payload = {
+          notes: [
+            { page: 1, quote: "Q1", memo: "M1" },
+            { page: 2, quote: "Q2", memo: "M2" }
+          ]
+        }
+
+        expect {
+          post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
+        }.to change { Note.count }.by(2)
+
+        expect(response).to have_http_status(:created)
+        json = JSON.parse(response.body)
+        expect(json["notes"].size).to eq(2)
+      end
+    end
+  end
+  
+  describe "404 を返す" do
+    it "returns 404 when book is soft-deleted" do
+      book.update!(deleted_at: Time.current)
+
+      post "/api/books/#{book.id}/notes/bulk",
+        params: {
+          notes: [
+            { page: 1, quote: "q", memo: "m" }
+          ]
+        },
+        as: :json
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
   describe "BulkInvalid → 422 + rollback を検知する" do
     let(:payload) do
       {
@@ -19,7 +55,7 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
         post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
       }.not_to change { Note.count }
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
 
       json = JSON.parse(response.body, symbolize_names: true)
       expect(json).to have_key(:errors)
@@ -54,24 +90,5 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
     end
   end
 
-  describe "成功ケース → 201 を返す" do
-    context "when all notes are valid" do
-      it "creates notes and returns 201" do
-        payload = {
-          notes: [
-            { page: 1, quote: "Q1", memo: "M1" },
-            { page: 2, quote: "Q2", memo: "M2" }
-          ]
-        }
-
-        expect {
-          post "/api/books/#{book.id}/notes/bulk", params: payload, as: :json
-        }.to change { Note.count }.by(2)
-
-        expect(response).to have_http_status(:created)
-        json = JSON.parse(response.body)
-        expect(json["notes"].size).to eq(2)
-      end
-    end
-  end
+  
 end

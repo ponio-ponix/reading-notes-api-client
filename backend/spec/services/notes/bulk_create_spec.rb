@@ -45,6 +45,17 @@ RSpec.describe Notes::BulkCreate do
       end
     end
 
+    context "when book is soft-deleted" do
+      let(:params) { [{ page: 1, quote: "ok", memo: nil }] }   
+      it "raises ActiveRecord::RecordNotFound" do
+        book.update!(deleted_at: Time.current)
+    
+        expect {
+          described_class.call(book_id: book.id, notes_params: params)
+        }.to raise_error(ActiveRecord::RecordNotFound)
+      end
+    end
+
 
     context "前提違反: notes が配列じゃないとき" do
       it "ArgumentError を投げ、1件も作成されない" do
