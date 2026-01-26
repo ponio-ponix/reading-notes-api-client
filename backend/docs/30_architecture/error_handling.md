@@ -62,6 +62,23 @@ Rails の `rescue_from` は **ハンドラが継承され**、例外発生時に
 
 ---
 
+## Controller / Service の責務：Book存在確認（alive）の置き場所
+
+### 結論
+- `Notes::BulkCreate` のように **Service が `Book.alive.find(book_id)` を行う場合**、  
+  Controller 側で同じ存在確認（`before_action :set_book`）を **重ねない**。
+- 同一リクエストで **同じBook取得が2回走る（二重クエリ）**のを防ぐため。
+
+### ルール
+- Controller が `@book` を使うなら `set_book` は置いてよい（例：createで `@book.notes.create!` を呼ぶ場合）
+- Controller が `@book` を使わないなら `set_book` は置かない（存在確認は Service に寄せる）
+
+### 実例
+- ✅ OK: `Api::NotesController#create`
+  - Controller が `@book.notes.create!` を実行するので `set_book` が必要
+- ✅ OK: `Api::NotesBulkController#create`
+  - Book存在確認は `Notes::BulkCreate` 側で実施するため `set_book` は不要（削除済み）
+
 ## rescue_from ルール（ApplicationController）
 
 ### 4xx（意図した失敗）

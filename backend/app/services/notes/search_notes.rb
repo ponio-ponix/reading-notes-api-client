@@ -7,9 +7,6 @@ module Notes
     # ==== 公開インターフェース ====
     # Controller からはここだけ呼ぶ
     def self.call(book_id:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
-
-
-    
       params = normalize_params(
         book_id: book_id,
         query: query,
@@ -18,11 +15,11 @@ module Notes
         page: page,
         limit: limit
       )
-      Book.alive.find(params[:book_id])
+      book = Book.alive.find(params[:book_id])
       # ① 入力を Service 内部用に正規化
 
       # ② 検索条件を組み立てる
-      rel = build_scope(params)
+      rel = build_scope(book, params)
 
       # ③ 件数カウント
       total_count = rel.count
@@ -79,8 +76,8 @@ module Notes
     private_class_method :normalize_params
 
     # 正規化済み params から ActiveRecord::Relation を作る
-    def self.build_scope(params)
-      rel = Note.where(book_id: params[:book_id])
+    def self.build_scope(book, params)
+      rel = book.notes
 
       if params[:page_from]
         rel = rel.where("page >= ?", params[:page_from])
