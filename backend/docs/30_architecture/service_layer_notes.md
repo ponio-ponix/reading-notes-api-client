@@ -80,7 +80,7 @@
 ### 2.3 Note 単一作成（POST /api/books/:book_id/notes）
 
 - Controller
-  - `@book = Book.find(params[:book_id])`
+  - `@book = Book.alive.find(params[:book_id])`
   - `@book.notes.new(note_params)` でインスタンス生成
   - `save` 結果に応じて 201 / 422 を返す
 - Service

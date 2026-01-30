@@ -234,7 +234,7 @@ module Notes
       # 前提チェック
       validate_notes_params!
 
-      book  = Book.find(@book_id)
+      book  = Book.alive.find(@book_id)
       notes = []
 
       ActiveRecord::Base.transaction do
