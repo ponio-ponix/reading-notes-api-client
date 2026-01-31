@@ -18,7 +18,8 @@
 module Api
   class BooksController < ApplicationController
     def index
-      books = Book.order(:id)
+      # soft-delete 対応: Book.alive スコープで削除済みを除外
+      books = Book.alive.order(created_at: :desc)
 
       render json: books.as_json(only: [:id, :title, :author])
     end
@@ -76,11 +77,10 @@ module Api
 
     private
 
+    # soft-delete 対応: Book.alive スコープで削除済みを除外
+    # RecordNotFound は ApplicationController の rescue_from で 404 に変換される
     def set_book
-      @book = Book.find_by(id: params[:book_id])
-      unless @book
-        render json: { error: "Book not found" }, status: :not_found
-      end
+      @book = Book.alive.find(params[:book_id])
     end
 
     def note_params

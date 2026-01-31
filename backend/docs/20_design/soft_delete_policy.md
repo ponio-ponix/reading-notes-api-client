@@ -6,10 +6,20 @@
 - 通常の取得（一覧 / 詳細 / 検索）は **削除されていない Book のみ**を対象とする  
   - 条件：`deleted_at IS NULL`
 
-## alive チェックの責務
-- Book の alive チェックは Service 層で行う。
-- Controller は book_id をそのまま Service に渡し、
-- 存在保証・生存保証は Service の責務とする。
+## alive チェックの責務（原則）
+
+- **原則**: Service が存在する場合、Book の alive チェック（`Book.alive.find`）は Service 層で行う。
+- Controller は book_id をそのまま Service に渡し、存在保証・生存保証は Service の責務とする。
+
+### 例外: Controller が @book を使用する場合
+
+以下のケースでは、Controller 側で `Book.alive.find` を行ってよい。
+
+- **MVP / シンプル CRUD**: Service を作らず Controller + Model で完結する場合
+  （例: `NotesController#create` で `@book.notes.create!` を直接実行）
+- **二重クエリ回避**: Controller が `@book` を使う場合、Service と重複して alive チェックを行わない
+
+詳細なルールは [error_handling.md](../30_architecture/error_handling.md#controller--service-の責務book存在確認aliveの置き場所) を参照。
 
 ### 例外的に deleted Book を参照するケース
 

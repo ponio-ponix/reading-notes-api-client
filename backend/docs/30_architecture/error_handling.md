@@ -64,6 +64,8 @@ Rails の `rescue_from` は **ハンドラが継承され**、例外発生時に
 
 ## Controller / Service の責務：Book存在確認（alive）の置き場所
 
+> **Note**: 本セクションは [soft_delete_policy.md](../20_design/soft_delete_policy.md#alive-チェックの責務原則) の例外規定を詳述したものです。
+
 ### 結論
 - `Notes::BulkCreate` のように **Service が `Book.alive.find(book_id)` を行う場合**、  
   Controller 側で同じ存在確認（`before_action :set_book`）を **重ねない**。
