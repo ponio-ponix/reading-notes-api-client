@@ -58,10 +58,10 @@ RSpec.describe Notes::BulkCreate do
 
 
     context "前提違反: notes が配列じゃないとき" do
-      it "ArgumentError を投げ、1件も作成されない" do
+      it "BadRequest を投げ、1件も作成されない" do
         expect {
           described_class.call(book_id: book.id, notes_params: "x")
-        }.to raise_error(ArgumentError, /notes must be a non-empty array/)
+        }.to raise_error(ApplicationErrors::BadRequest, /notes must be a non-empty array/)
 
         expect(Note.where(book_id: book.id).count).to eq 0
       end
@@ -109,12 +109,12 @@ RSpec.describe Notes::BulkCreate do
     end
 
     context "前提違反: notes が空配列のとき" do
-      it "ArgumentError を投げ、1件も作成されない" do
+      it "BadRequest を投げ、1件も作成されない" do
         expect {
-          expect {
-            described_class.call(book_id: book.id, notes_params: [])
-          }.to raise_error(ArgumentError, /must be a non-empty array/)
-        }.not_to change { Note.where(book_id: book.id).count }
+          described_class.call(book_id: book.id, notes_params: [])
+        }.to raise_error(ApplicationErrors::BadRequest, /must be a non-empty array/)
+    
+        expect(Note.where(book_id: book.id).count).to eq 0
       end
     end
 
@@ -124,13 +124,13 @@ RSpec.describe Notes::BulkCreate do
           { page: i + 1, quote: "q#{i}", memo: nil }
         end
       end
-
-      it "ArgumentError を投げ、1件も作成されない" do
+    
+      it "BadRequest を投げ、1件も作成されない" do
         expect {
-          expect {
-            described_class.call(book_id: book.id, notes_params: over_params)
-          }.to raise_error(ArgumentError, /too many notes/)
-        }.not_to change { Note.where(book_id: book.id).count }
+          described_class.call(book_id: book.id, notes_params: over_params)
+        }.to raise_error(ApplicationErrors::BadRequest, /too many notes/)
+    
+        expect(Note.where(book_id: book.id).count).to eq 0
       end
     end
 

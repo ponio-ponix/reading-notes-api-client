@@ -1,7 +1,7 @@
 class Api::NotesBulkController < ApplicationController
 
-  before_action :set_book, only: [:create]
 
+  # Book の存在確認は Notes::BulkCreate 側で行う（Controller で二重にDBを叩かない）
   def create
     notes = Notes::BulkCreate.call(
       book_id: params[:book_id],
@@ -27,17 +27,13 @@ class Api::NotesBulkController < ApplicationController
 
   def notes_params
     raw = params[:notes]
-    raise ArgumentError, "notes must be provided" if raw.nil?
-    raise ArgumentError, "notes must be an array" unless raw.is_a?(Array)
+    raise ApplicationErrors::BadRequest, "notes must be provided" if raw.nil?
+    raise ApplicationErrors::BadRequest, "notes must be an array" unless raw.is_a?(Array)
   
     raw.map.with_index do |note, i|
-      raise ArgumentError, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
+      raise ApplicationErrors::BadRequest, "notes[#{i}] must be an object" unless note.is_a?(ActionController::Parameters)
       note.permit(:page, :quote, :memo).to_h
     end
-  end
-
-  def set_book
-    @book = Book.alive.find(params[:book_id])
   end
 
 end
