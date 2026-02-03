@@ -27,34 +27,30 @@ module Api
 end
 
 
-⸻
+---
 
-1.2 Notes（単一作成・削除・検索）
-	•	クラス: Api::NotesController
-	•	エンドポイント:
-	•	GET    /api/books/:book_id/notes → #index
-	•	POST   /api/books/:book_id/notes → #create
-	•	DELETE /api/notes/:id            → #destroy
+### 1.2 Notes（単一作成・削除・検索）
 
+#### なぜ検索（index）を分離したか
+
+- NotesController を「単一 CRUD（create / destroy）」に寄せて責務を単純化
+- 検索はパラメータ正規化・クエリ組み立て・ページネーション等で肥大化しやすい
+- SearchController + Service に分離することで責務境界が明確になる
+
+#### エンドポイント対応
+
+| HTTP   | Path                          | Controller#Action                  |
+|--------|-------------------------------|------------------------------------|
+| GET    | `/api/books/:book_id/notes`   | `Api::NotesSearchController#index` |
+| POST   | `/api/books/:book_id/notes`   | `Api::NotesController#create`      |
+| DELETE | `/api/notes/:id`              | `Api::NotesController#destroy`     |
+
+#### Api::NotesController（単一作成・削除）
+
+```rb
 module Api
   class NotesController < ApplicationController
-    before_action :set_book, only: [:index, :create]
-
-    def index
-      notes, meta = Notes::SearchNotes.call(
-        book_id:   @book.id,
-        query:     params[:q],
-        page_from: params[:page_from],
-        page_to:   params[:page_to],
-        page:      params[:page],
-        limit:     params[:limit]
-      )
-
-      render json: {
-        notes: notes.as_json(only: [:id, :book_id, :page, :quote, :memo, :created_at]),
-        meta:  meta
-      }
-    end
+    before_action :set_book, only: [:create]
 
     def create
       note = @book.notes.new(note_params)
@@ -67,11 +63,10 @@ module Api
       end
     end
 
+    # RecordNotFound は ApplicationController の rescue_from で 404 に変換される
     def destroy
-      note = Note.find_by(id: params[:id])
-      return render json: { error: "Not found" }, status: :not_found unless note
-
-      note.destroy
+      note = Note.find(params[:id])
+      note.destroy!
       head :no_content
     end
 
@@ -88,6 +83,32 @@ module Api
     end
   end
 end
+```
+
+#### Api::NotesSearchController（検索）
+
+```rb
+module Api
+  class NotesSearchController < ApplicationController
+    # Book の存在確認は Notes::SearchNotes 側で行う（Controller で二重に DB を叩かない）
+    def index
+      notes, meta = Notes::SearchNotes.call(
+        book_id:   params[:book_id],
+        query:     params[:q],
+        page_from: params[:page_from],
+        page_to:   params[:page_to],
+        page:      params[:page],
+        limit:     params[:limit]
+      )
+
+      render json: {
+        notes: notes.as_json(only: [:id, :book_id, :page, :quote, :memo, :created_at]),
+        meta:  meta
+      }
+    end
+  end
+end
+```
 
 
 ⸻
