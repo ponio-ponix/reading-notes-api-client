@@ -61,7 +61,7 @@ API 仕様とトランザクション境界の整合性を保証する。
 
 | 例外クラス | HTTP Status | 分類 | 実装確認 |
 |-----------|-------------|------|----------|
-| `ArgumentError` | 400 Bad Request | 想定内 | ✓ |
+| `ApplicationErrors::BadRequest` | 400 Bad Request | 想定内 | ✓ |
 | `ActiveRecord::RecordNotFound` | 404 Not Found | 想定内 | ✓ |
 | `ActiveRecord::RecordInvalid` | 422 Unprocessable Entity | 想定内 | ✓ |
 | `ActiveRecord::RecordNotDestroyed` | 422 Unprocessable Entity | 想定内 | ✓ |
@@ -126,7 +126,7 @@ end
 
 **Service Layer の責務:**
 - ドメイン上の失敗を例外として表現する
-- 例：ArgumentError（入力不正）、BulkInvalid（バリデーション失敗）
+- 例：ApplicationErrors::BadRequest（入力不正）、BulkInvalid（バリデーション失敗）
 - **ログ出力は行わない**（Controller に委ねる）
 
 **Controller Layer の責務:**
@@ -181,7 +181,7 @@ end
 - `ActiveRecord::Base.transaction` が削除され、一部の Note だけ保存されるようになった
 - Controller が Service を呼ばなくなった
 
-#### ArgumentError → 400 のエンドツーエンド保証
+#### ApplicationErrors::BadRequest → 400 のエンドツーエンド保証
 
 **検証箇所**: L37-55
 
@@ -191,8 +191,8 @@ end
 3. DB に Note が 1件も作成されていないこと（L42-44: `.not_to change { Note.count }`）
 
 **このテストが検知できる破壊的変更:**
-- `rescue_from ArgumentError` が削除された
-- ArgumentError が 422 / 500 に化けた
+- `rescue_from ApplicationErrors::BadRequest` が削除された
+- ApplicationErrors::BadRequest が 422 / 500 に化けた
 - transaction 外で副作用が発生するようになった
 
 ### Service Spec による保証
