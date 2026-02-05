@@ -11,7 +11,7 @@ module Api
       if book.save
         render json: book.as_json(only: [:id, :title, :author]), status: :created
       else
-        render json: { errors: book.errors }, status: :unprocessable_entity
+        render json: { errors: book.errors.full_messages }, status: :unprocessable_entity
       end
     end
 
