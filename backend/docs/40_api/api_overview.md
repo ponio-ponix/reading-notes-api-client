@@ -130,3 +130,11 @@ BulkCreate のみ、
 - index は notes 内のインデックス番号
 - messages は複数のバリデーションメッセージ配列
 - API 全体の { "errors": [...] } ルート形式は維持する
+
+## 2. Endpoints
+
+### POST /books
+
+#### Request
+```json
+{ "book": { "title": "string", "author": "string" } }

@@ -1,5 +1,11 @@
 # Error Handling（例外設計・境界）
 
+> Docs Scope（役割）
+> 本ドキュメントは例外設計方針（4xx/5xx 境界・rescue_from 方針）を定義する。
+> API レスポンス形式（errors の型など）の最終定義（SSOT）は `docs/40_api/api_overview.md` とする。
+> 本ドキュメントを含む他の設計文書は、当該仕様を上書きしてはならない。
+
+
 ## 目的
 - API のエラーを **「ユーザー入力ミス（4xx）」** と **「サーバ側バグ（5xx）」** に分離し、運用とデバッグの精度を上げる。
 - 特に、Ruby/Rails/gem が投げる `ArgumentError` 等を **誤って 400 に変換してバグを隠す事故**を防ぐ。
@@ -119,7 +125,11 @@ Rails の `rescue_from` は **ハンドラが継承され**、例外発生時に
 ---
 
 ## エラーレスポンス形式（API 共通）
-- 400 / 404 / 422 / 500 は共通で `errors: string[]` を返す。
+- 共通: すべてのエラーレスポンスは `{ errors: ... }` 形式を持つ。
+- デフォルト型: `errors: string[]`
+- 例外: BulkCreate の 422 のみ
+  `errors: Array<{ index: number, messages: string[] }>`
+- errors 形式の最終決定権（SSOT）は`docs/40_api/api_overview.md` とする。本ドキュメントを含む他の設計文書は、当該仕様を上書きしてはならない。
 
 例：
 ```json

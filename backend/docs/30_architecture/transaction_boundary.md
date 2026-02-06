@@ -171,7 +171,7 @@ end
 
 検証している事項：
 1. HTTP ステータスが `422 Unprocessable Entity` であること（L22）
-2. レスポンス body が `{ errors: [{ index: N, messages: [...] }] }` 形式であること（L24-33）
+2. レスポンス body がBulkCreate 固有の 422 エラー形式であること  （詳細は docs/40_api/api_overview.md を参照）
 3. DB に Note が 1件も作成されていないこと（L18-20: `.not_to change { Note.count }`）
 
 **このテストが検知できる破壊的変更:**
