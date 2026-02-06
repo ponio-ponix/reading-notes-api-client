@@ -108,7 +108,7 @@
 - Controller（`Api::NotesBulkController#create`）
   - `book_id` と `notes_params` を Service に丸投げ
   - 成功時 201 / 失敗時 422 or 400 の JSON を返す
-  - `rescue_from` で `BulkInvalid` / `ArgumentError` を HTTP ステータスにマッピング
+  - `rescue_from` で `BulkInvalid` / `ApplicationErrors::BadRequest` を HTTP ステータスにマッピング
 - Service（`Notes::BulkCreate`）
   - `notes` 配列の前提チェック（空配列 / 上限件数）
   - 1件ずつ `Note` を build & validate
