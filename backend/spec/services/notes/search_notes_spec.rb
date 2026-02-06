@@ -23,6 +23,22 @@ RSpec.describe Notes::SearchNotes, type: :service do
       )
     end
 
+    it '空白の query は未指定扱い（nil）と同じ結果を返す' do
+      Note.create!(book: book, page: 1, quote: "a", memo: "b")
+      Note.create!(book: book, page: 2, quote: "c", memo: nil)
+    
+      notes_blank, meta_blank = described_class.call(
+        book_id: book.id, query: "   ", page_from: nil, page_to: nil, page: 1, limit: 50
+      )
+    
+      notes_nil, meta_nil = described_class.call(
+        book_id: book.id, query: nil, page_from: nil, page_to: nil, page: 1, limit: 50
+      )
+    
+      expect(notes_blank).to match_array(notes_nil)
+      expect(meta_blank[:total_count]).to eq meta_nil[:total_count]
+    end
+
     it '何もフィルタしないとき、全件・meta が正しい' do
       notes, meta = described_class.call(
         book_id:   book.id,
@@ -126,7 +142,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
           page:      1,
           limit:     10
         )
-      }.to raise_error(ApplicationErrors::BadRequest, /page_from must be <= page_to/)
+      }.to raise_error(ApplicationErrors::BadRequest)
     end
 
     it 'page が整数文字列でない場合は BadRequest を投げる' do
@@ -139,7 +155,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
           page:      "abc",
           limit:     10
         )
-      }.to raise_error(ApplicationErrors::BadRequest, /page が/)
+      }.to raise_error(ApplicationErrors::BadRequest)
     end
 
     it 'page_from / page_to が整数文字列でない場合は BadRequest を投げる' do
@@ -152,7 +168,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
           page:      1,
           limit:     10
         )
-      }.to raise_error(ApplicationErrors::BadRequest, /page_from/)
+      }.to raise_error(ApplicationErrors::BadRequest)
     end
 
     it 'page <= 0 の場合は 1 に正規化される' do

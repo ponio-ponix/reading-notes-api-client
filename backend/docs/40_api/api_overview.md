@@ -130,3 +130,409 @@ BulkCreate のみ、
 - index は notes 内のインデックス番号
 - messages は複数のバリデーションメッセージ配列
 - API 全体の { "errors": [...] } ルート形式は維持する
+
+## 2. Endpoints
+
+---
+
+### 2.1 Books
+
+---
+
+#### GET /api/books
+
+Book 一覧を取得する。論理削除された Book は含まれない。
+
+##### Response
+
+**200 OK**
+
+```json
+[
+  {
+    "id": 1,
+    "title": "リーダブルコード",
+    "author": "Dustin Boswell"
+  },
+  {
+    "id": 2,
+    "title": "プログラマが知るべき97のこと",
+    "author": "Kevlin Henney"
+  }
+]
+```
+
+- 配列は `created_at` 降順でソートされる
+- Book が存在しない場合は空配列 `[]` を返す
+
+---
+
+#### POST /api/books
+
+新しい Book を作成する。
+
+##### Request
+
+```json
+{
+  "book": {
+    "title": "リーダブルコード",
+    "author": "Dustin Boswell"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| title | string | Yes | 書籍タイトル |
+| author | string | No | 著者名 |
+
+##### Response
+
+**201 Created**
+
+```json
+{
+  "id": 1,
+  "title": "リーダブルコード",
+  "author": "Dustin Boswell"
+}
+```
+
+**422 Unprocessable Entity**
+
+```json
+{
+  "errors": [
+    "Title can't be blank"
+  ]
+}
+```
+
+---
+
+### 2.2 Notes
+
+---
+
+#### POST /api/books/:book_id/notes
+
+指定した Book に Note を1件作成する。
+
+##### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| book_id | integer | Book の ID |
+
+##### Request
+
+```json
+{
+  "note": {
+    "page": 42,
+    "quote": "コードは他の人が最短時間で理解できるように書かなければいけない",
+    "memo": "チーム開発で重要な原則"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| page | integer | No | ページ番号（1以上） |
+| quote | string | Yes | 引用文（最大1000文字） |
+| memo | string | No | メモ（最大2000文字） |
+
+##### Response
+
+**201 Created**
+
+```json
+{
+  "id": 1,
+  "book_id": 1,
+  "page": 42,
+  "quote": "コードは他の人が最短時間で理解できるように書かなければいけない",
+  "memo": "チーム開発で重要な原則",
+  "created_at": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**404 Not Found**
+
+Book が存在しない、または論理削除されている場合。
+
+```json
+{
+  "errors": [
+    "Couldn't find Book with 'id'=999"
+  ]
+}
+```
+
+**422 Unprocessable Entity**
+
+```json
+{
+  "errors": [
+    "Quote can't be blank"
+  ]
+}
+```
+
+---
+
+#### DELETE /api/notes/:id
+
+Note を削除する。
+
+##### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | integer | Note の ID |
+
+##### Response
+
+**204 No Content**
+
+（レスポンスボディなし）
+
+**404 Not Found**
+
+Note が存在しない場合。
+
+```json
+{
+  "errors": [
+    "Couldn't find Note with 'id'=999"
+  ]
+}
+```
+
+---
+
+### 2.3 Notes Bulk Create
+
+---
+
+#### POST /api/books/:book_id/notes/bulk
+
+指定した Book に複数の Note を一括作成する。
+全件成功 or 全件失敗（トランザクション）。
+
+##### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| book_id | integer | Book の ID |
+
+##### Request
+
+```json
+{
+  "notes": [
+    { "page": 10, "quote": "引用文1", "memo": "メモ1" },
+    { "page": 20, "quote": "引用文2", "memo": null }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| notes | array | Yes | Note オブジェクトの配列（1〜20件） |
+| notes[].page | integer | No | ページ番号（1以上） |
+| notes[].quote | string | Yes | 引用文（最大1000文字） |
+| notes[].memo | string | No | メモ（最大2000文字） |
+
+##### Response
+
+**201 Created**
+
+```json
+{
+  "notes": [
+    {
+      "id": 1,
+      "page": 10,
+      "quote": "引用文1",
+      "memo": "メモ1",
+      "created_at": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "page": 20,
+      "quote": "引用文2",
+      "memo": null,
+      "created_at": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "meta": {
+    "created_count": 2
+  }
+}
+```
+
+**400 Bad Request**
+
+リクエスト構造が不正な場合。
+
+```json
+{
+  "errors": [
+    "notes must be provided"
+  ]
+}
+```
+
+その他の 400 ケース:
+- `"notes must be an array"` — notes が配列でない
+- `"notes[0] must be an object"` — 配列要素がオブジェクトでない
+- `"notes must be a non-empty array"` — 空配列
+- `"too many notes (max 20)"` — 21件以上
+
+**404 Not Found**
+
+Book が存在しない、または論理削除されている場合。
+
+```json
+{
+  "errors": [
+    "Couldn't find Book with 'id'=999"
+  ]
+}
+```
+
+**422 Unprocessable Entity（Bulk 専用形式）**
+
+1件以上のバリデーションエラーがある場合。
+**注意**: このエンドポイントのみ structured errors 形式を採用する。
+
+```json
+{
+  "errors": [
+    {
+      "index": 1,
+      "messages": [
+        "Quote can't be blank"
+      ]
+    },
+    {
+      "index": 3,
+      "messages": [
+        "Page must be greater than or equal to 1"
+      ]
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| errors[].index | integer | エラーが発生した notes 配列のインデックス（0始まり） |
+| errors[].messages | string[] | そのインデックスで発生したバリデーションエラーメッセージ |
+
+---
+
+### 2.4 Notes Search
+
+---
+
+#### GET /api/books/:book_id/notes_search
+
+指定した Book の Note を検索・フィルタリング・ページネーションして取得する。
+
+##### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| book_id | integer | Book の ID |
+
+##### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| q | string | No | — | 検索キーワード（quote または memo に部分一致、スペース区切りで AND 検索） |
+| page_from | integer | No | — | ページ番号の下限（この値以上） |
+| page_to | integer | No | — | ページ番号の上限（この値以下） |
+| page | integer | No | 1 | ページネーションのページ番号 |
+| limit | integer | No | 50 | 1ページあたりの件数（最大200） |
+
+##### Response
+
+**200 OK**
+
+```json
+{
+  "notes": [
+    {
+      "id": 1,
+      "book_id": 1,
+      "page": 42,
+      "quote": "コードは他の人が最短時間で理解できるように書かなければいけない",
+      "memo": "チーム開発で重要な原則",
+      "created_at": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "meta": {
+    "total_count": 15,
+    "page": 1,
+    "limit": 50,
+    "total_pages": 1
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| notes | array | Note オブジェクトの配列（`created_at` 降順） |
+| meta.total_count | integer | フィルタ条件に合致する全件数 |
+| meta.page | integer | 現在のページ番号 |
+| meta.limit | integer | 1ページあたりの件数 |
+| meta.total_pages | integer | 総ページ数 |
+
+**400 Bad Request**
+
+クエリパラメータが不正な場合。
+
+```json
+{
+  "errors": [
+    "page must be an integer or nil"
+  ]
+}
+```
+
+その他の 400 ケース:
+- `"limit must be an integer or nil"`
+- `"page_from and page_to must be integers"`
+- `"page_from must be less than or equal to page_to"`
+
+**404 Not Found**
+
+Book が存在しない、または論理削除されている場合。
+
+```json
+{
+  "errors": [
+    "Couldn't find Book with 'id'=999"
+  ]
+}
+```
+
+---
+
+### 2.5 共通エラーレスポンス
+
+すべてのエンドポイントで発生しうる共通エラー。
+
+**500 Internal Server Error**
+
+サーバ側の想定外エラー（本番環境のみ）。
+
+```json
+{
+  "errors": [
+    "Internal server error"
+  ]
+}

@@ -35,22 +35,22 @@ module Notes
     # Controller 由来の値（文字列・nil・変な値）を
     # Service 内部で扱いやすい形にそろえる
     def self.normalize_params(book_id:, query:, page_from:, page_to:, page:, limit:)
-      raise ApplicationErrors::BadRequest, "book_id が数値でない" unless book_id.to_s =~ /\A\d+\z/
+      raise ApplicationErrors::BadRequest, "book_id must be a numeric string" unless book_id.to_s =~ /\A\d+\z/
 
       if page.present? && page.to_s !~ /\A\d+\z/
-        raise ApplicationErrors::BadRequest, "page が “整数でも nil でもない"
+        raise ApplicationErrors::BadRequest, "page must be an integer or nil"
       end
     
       if limit.present? && limit.to_s !~ /\A\d+\z/
-        raise ApplicationErrors::BadRequest, "limit が “整数でも nil でもない"
+        raise ApplicationErrors::BadRequest, "limit must be an integer or nil"
       end
     
       if page_from.present? && page_from.to_s !~ /\A\d+\z/
-        raise ApplicationErrors::BadRequest, "page_from / page_to が整数でない"
+        raise ApplicationErrors::BadRequest, "page_from and page_to must be integers"
       end
     
       if page_to.present? && page_to.to_s !~ /\A\d+\z/
-        raise ApplicationErrors::BadRequest, "page_from / page_to が整数でない"
+        raise ApplicationErrors::BadRequest, "page_from and page_to must be integers"
       end
 
       page_i  = page.to_i
@@ -60,7 +60,7 @@ module Notes
       limit_i      = normalize_limit(limit)
 
       if page_from_i && page_to_i && page_from_i > page_to_i
-        raise ApplicationErrors::BadRequest, "page_from must be <= page_to"
+        raise ApplicationErrors::BadRequest, "page_from must be less than or equal to page_to"
       end
     
 

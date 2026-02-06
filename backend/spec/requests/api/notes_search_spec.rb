@@ -58,7 +58,7 @@ RSpec.describe "Notes Search API", type: :request do
       end
     end
 
-    context "400系（ArgumentError rescue）" do
+    context "400系（BadRequest）" do
       it "returns 400 when page is not an integer" do
         get "/api/books/#{book.id}/notes_search", params: { page: "x" }
 

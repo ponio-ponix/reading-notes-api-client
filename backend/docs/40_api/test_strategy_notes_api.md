@@ -122,7 +122,7 @@
 4. ページング計算
    - `total_count` / `total_pages` の計算が正しいか
 5. パラメータ異常
-   - page < 1 / limit 範囲外で `ArgumentError` を投げる
+   - page < 1 / limit 範囲外で `ApplicationErrors::BadRequest` を投げる
 
 ---
 
@@ -137,9 +137,9 @@
    - call が `BulkInvalid` を投げる
    - DB には1件も保存されていない（ロールバックされている）
 3. 入力前提のチェック
-   - `notes_params` が配列でない → `ArgumentError`
-   - 空配列 → `ArgumentError`
-   - 21件以上 → `ArgumentError`
+   - `notes_params` が配列でない → `ApplicationErrors::BadRequest`
+   - 空配列 → `ApplicationErrors::BadRequest`
+   - 21件以上 → `ApplicationErrors::BadRequest`
 4. エラーオブジェクトの中身
    - `BulkInvalid#index` と `messages` が期待通り
 
