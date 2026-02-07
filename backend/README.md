@@ -31,9 +31,9 @@
 
 ### 主な設計ポイント
 
-- **論理削除**: Book は `deleted_at` による論理削除（物理削除しない）
-- **FK 制約**: `notes.book_id → books.id` は `ON DELETE RESTRICT`（Note があると Book を削除できない）
-- **CHECK 制約**: `quote` 最大1000文字、`memo` 最大2000文字（DB レベルで保証）
+- **論理削除**: Book は `deleted_at` による論理削除（Note との参照整合性を保ち、履歴を失わないため）
+- **FK 制約**: `notes.book_id → books.id` は `ON DELETE RESTRICT`（Note が存在する Book の誤削除を防ぐため）
+- **CHECK 制約**: `quote` 最大1000文字、`memo` 最大2000文字（アプリのバグや不正入力があってもDBで破壊的データを防ぐため）
 
 ## API エンドポイント
 
