@@ -49,5 +49,15 @@ API contract (SSOT): `backend/docs/40_api/api_overview.md`
 
 ---
 
+## Live Demo
+
+- API Base URL: https://xxxxx.fly.dev
+
+### Quick smoke test
+
+```bash
+curl -i https://xxxxx.fly.dev/api/books
+```
+
 **本プロジェクトは、機能の多さよりもデータ整合性を優先し、小さくても信頼できるバックエンドAPIの実現を目的として設計しました。**
 
