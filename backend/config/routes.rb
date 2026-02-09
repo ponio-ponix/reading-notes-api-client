@@ -1,4 +1,7 @@
 Rails.application.routes.draw do
+
+  get "/healthz", to: "health#show"
+  
   namespace :api do
     resources :books, only: [:index, :create] do
       resources :notes, only: [:create]
