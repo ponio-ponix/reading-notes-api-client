@@ -1,58 +1,53 @@
-# reading-notes
+# reading-notes (Backend API)
 
-本の引用・メモを溜めて検索できる「読書ノート」アプリ。
+読書中の **引用（quote）/メモ（memo）** を **安全に保存・検索** できる Rails API。
+**DB制約・一貫したエラーレスポンス・トランザクション整合性** を重視して実装。
 
-- Backend: Ruby on Rails 8 (API モード + React/Vite)
-- Frontend: React + TypeScript + Vite
-- DB: PostgreSQL
+## What this is
 
-## 構成
+- **Books** を作成し、各Bookに紐づく **Notes**（quote/memo/page）を登録
+- Notes の **検索**（キーワード / ページ範囲）
+- Notes の **一括登録**（トランザクションで全成功/全失敗）
 
-### Backend (Rails)
+## Tech stack
 
-主な役割：
+- Ruby 3.2.2 / Rails 8.0.4 (API mode)
+- PostgreSQL 16
+- RSpec（`64 examples, 0 failures`）
 
-- 本（Book）とメモ（Note）の CRUD
-- メモ検索（ページ範囲 / フリーテキスト）
-- メモの一括登録（Bulk Create, トランザクションあり）
+## Design highlights (why it’s “safe”)
 
-ディレクトリのざっくり役割：
+- **Soft delete**: Book は `deleted_at` による論理削除（履歴保持）
+- **Referential integrity**: `notes.book_id → books.id` は **FK + ON DELETE RESTRICT**
+  - Note がある Book の誤削除を防止
+- **DB-level validation**: `quote <= 1000`, `memo <= 2000` を **CHECK 制約**で防御
+- **Bulk create atomicity**: 一括登録はトランザクションで **全件成功 or 全件失敗**
 
-- `app/controllers/api`  
-  - `books_controller.rb` … 本の一覧・作成  
-  - `notes_controller.rb` … 単体 Note の一覧・作成・検索  
-  - `notes_bulk_controller.rb` … 一括作成エンドポイント
-- `app/services/notes`  
-  - `search_notes.rb` … 検索条件の正規化 + クエリ組み立て  
-  - `bulk_create.rb` … Bulk Create のトランザクション処理
-- `docs/`  
-  - `01_api_contracts/` … Bulk Create などの API 契約  
-  - `spec/` … 不変条件やデータモデルのメモ
+## Quick start (Docker)
 
-### Frontend (React)
+```bash
+# Start
+docker compose up --build
 
-- 書籍一覧表示・選択
-- 選択した本に対する Note の一覧・登録
-- 今後：検索 UI / 連続メモ入力モードを実装予定
+# Migrate (first time only)
+docker compose exec web bin/rails db:migrate
+
+```
+
+
+## Smoke test
+```bash
+curl -i http://localhost:3000/api/books
+```
 
 ---
 
 ## 📘 Documentation
 
-仕様や技術設計の詳細は `backend/docs/` にあります：
-
-- **Bulk Create Notes API Contract**  
-  `backend/docs/01_api_contracts/bulk_create_notes.md`
-
-- **Invariants（不変条件）とトランザクション境界**  
-  `backend/docs/spec/invariants.md`
-
-- **Domain Model / Data Model**  
-  `backend/docs/domain_model.md`  
-  `backend/docs/spec/data_model.md`
-
-- **MVP仕様**  
-  `backend/docs/mvp_spec.md`
+API contract (SSOT): `backend/docs/40_api/api_overview.md`
+仕様や技術設計の詳細は: `backend/README.md`
 
 ---
+
+**本プロジェクトは、機能の多さよりもデータ整合性を優先し、小さくても信頼できるバックエンドAPIの実現を目的として設計しました。**
 
