@@ -7,12 +7,16 @@
 #   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
-book = Book.first
+book = Book.find_or_create_by!(title: "Sample Book") do |b|
+  b.author = "Sample Author"
+end
+
+# 既存 book が author nil のケースも補正（任意だけど安全）
+book.update!(author: "Sample Author") if book.author.nil?
 
 12.times do |i|
-  book.notes.create!(
-    page:  i + 1,
-    quote: "引用 #{i + 1} のテキストです。",
-    memo:  "メモ #{i + 1}"
-  )
+  book.notes.find_or_create_by!(page: i + 1) do |n|
+    n.quote = "引用 #{i + 1} のテキストです。"
+    n.memo  = "メモ #{i + 1}"
+  end
 end
