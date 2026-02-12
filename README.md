@@ -48,8 +48,8 @@ curl -i http://localhost:3000/api/books
 
 ## 📘 Documentation
 
-API contract (SSOT): `backend/docs/40_api/api_overview.md`
-仕様や技術設計の詳細は: `backend/README.md`
+API contract (SSOT): [`backend/docs/40_api/api_overview.md`](backend/docs/40_api/api_overview.md)  
+仕様や技術設計の詳細は: [`backend/README.md`](backend/README.md)
 
 ---
 
