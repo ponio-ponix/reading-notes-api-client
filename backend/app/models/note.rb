@@ -3,7 +3,7 @@ class Note < ApplicationRecord
 
   validates :quote, presence: true, length: { maximum: 1000 }
   validates :memo,  length: { maximum: 2000 }, allow_nil: true
-  validates :page,  numericality: { only_integer: true, greater_than_or_equal_to: 1 }, allow_nil: true
+  validates :page,  numericality: { only_integer: true, greater_than_or_equal_to: 1 }
 
   before_validation :strip_text
 
