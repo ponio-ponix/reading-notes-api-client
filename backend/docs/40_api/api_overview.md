@@ -117,11 +117,11 @@ BulkCreate のみ、
   "errors": [
     {
       "index": 0,
-      "messages": ["page must be greater than 0"]
+      "messages": ["Page must be greater than or equal to 1"]
     },
     {
       "index": 2,
-      "messages": ["quote can't be blank"]
+      "messages": ["Quote can't be blank"]
     }
   ]
 }
@@ -239,7 +239,7 @@ Book 一覧を取得する。論理削除された Book は含まれない。
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| page | integer | No | ページ番号（1以上） |
+| page | integer | Yes | ページ番号（1以上）。DB NOT NULL 制約により必須 |
 | quote | string | Yes | 引用文（最大1000文字） |
 | memo | string | No | メモ（最大2000文字） |
 
@@ -272,10 +272,28 @@ Book が存在しない、または論理削除されている場合。
 
 **422 Unprocessable Entity**
 
+バリデーションエラーが発生した場合。
+
 ```json
 {
   "errors": [
     "Quote can't be blank"
+  ]
+}
+```
+
+```json
+{
+  "errors": [
+    "Page is not a number"
+  ]
+}
+```
+
+```json
+{
+  "errors": [
+    "Page must be greater than or equal to 1"
   ]
 }
 ```
@@ -341,7 +359,7 @@ Note が存在しない場合。
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | notes | array | Yes | Note オブジェクトの配列（1〜20件） |
-| notes[].page | integer | No | ページ番号（1以上） |
+| notes[].page | integer | Yes | ページ番号（1以上）。DB NOT NULL 制約により必須 |
 | notes[].quote | string | Yes | 引用文（最大1000文字） |
 | notes[].memo | string | No | メモ（最大2000文字） |
 

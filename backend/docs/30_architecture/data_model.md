@@ -34,29 +34,28 @@ Book (1) —— (N) Note
 UI とトランザクション境界の中心となるモデル。
 
 ### カラム仕様（MVP）
-| カラム | 型 | null | 目的 |
+| カラム | 型 | 制約 | 目的 |
 |-------|----|------|------|
-| book_id | integer | not null | 親BookへのFK |
-| page | integer | null allowed | ページ番号（不明時はnull） |
-| quote | text | not null | 引用文 |
-| memo | text | null allowed | 補足メモ |
+| book_id | bigint | not null, FK (on_delete: :restrict) | 親BookへのFK |
+| page | integer | not null, CHECK (page >= 1) | ページ番号 |
+| quote | text | not null, CHECK (char_length <= 1000) | 引用文（最大1000文字） |
+| memo | text | null allowed, CHECK (char_length <= 2000) | 補足メモ（最大2000文字） |
 
 ---
 
 ## 4. バリデーション方針（MVP）
 
 ### quote
-- 必須  
-- 最大文字数：**当面は無制限**  
-（後から 500〜2000 文字上限も検討可能）
+- 必須（NOT NULL）
+- 最大文字数：**1000文字**（DB CHECK 制約）
 
 ### page
-- null 許容
-- 値がある場合は: `>= 1`
+- 必須（NOT NULL）
+- 値は `>= 1`（DB CHECK 制約）
 
 ### memo
-- 任意
-- 最大文字数上限は未設定（必要なら入れる）
+- 任意（NULL 許容）
+- 最大文字数：**2000文字**（DB CHECK 制約）
 
 ---
 
@@ -88,8 +87,6 @@ Note モデルに特別な insert 構造を持たせる必要はない。
 
 - Tag テーブル（多対多）
 - Section / Chapter テーブル（自動構造化）
-- index (book_id, page)
-- soft delete
 - note_count のキャッシュ
 - 同期用の revision カラム
 
