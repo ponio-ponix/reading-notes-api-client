@@ -1,6 +1,35 @@
 # Reading Notes Backend
 
-読書中の引用・メモを管理する API サーバー。
+データ整合性と障害耐性を重視して設計した
+読書引用管理用 REST API。
+
+
+## Production URL
+
+Base URL:
+https://backend-withered-voice-4962.fly.dev
+
+Example:
+
+```bash
+curl https://backend-withered-voice-4962.fly.dev/api/books
+
+```
+## Design Intent
+
+本APIは以下を重視して設計した。
+
+- **DB制約によるデータ整合性の保証**
+  - NOT NULL / CHECK / FK を用いてアプリ層の不具合でも破壊的データを防ぐ
+- **例外系の統一**
+  - 422 / 404 / 500 を ApplicationController で一元処理
+- **無料サーバーレス構成での実運用再現**
+  - Fly.io + Neon による公開環境
+  - コールドスタート遅延を含めて説明可能な状態
+
+目的は  
+**「壊れないAPIを設計・説明できることの証明」**  
+である。
 
 ## 技術スタック
 
@@ -124,3 +153,94 @@ backend/
 | [`docs/30_architecture/error_handling.md`](docs/30_architecture/error_handling.md) | エラーハンドリング設計 |
 | [`docs/30_architecture/transaction_boundary.md`](docs/30_architecture/transaction_boundary.md) | トランザクション境界 |
 | [`docs/20_design/soft_delete_policy.md`](docs/20_design/soft_delete_policy.md) | 論理削除ポリシー |
+
+
+## Runtime Performance Characteristics（コールドスタートによる遅延）
+
+### 概要
+
+- **初回アクセス遅延:** 約5秒  
+- **2回目以降:** 約200ms  
+
+この遅延は、**一定時間アクセスが無かった後の最初のリクエストのみ**発生する。
+
+---
+
+### 根本原因
+
+本遅延はアプリケーション性能ではなく、  
+**サーバーレスインフラのコールドスタート**によるもの。
+
+- **Fly.io のオートストップ**
+  - トラフィックが無いと VM が自動停止する。
+  - 次回アクセス時に VM 起動待ちが発生する。
+
+- **Neon（Serverless Postgres）のコールドスタート**
+  - 初回接続時に DB コンピュートが再開される。
+  - 最初のクエリに数秒の遅延が追加される。
+
+---
+
+### 根拠（本番ログ）
+
+**遅いリクエスト**
+
+- Total: 約5.1秒  
+- ActiveRecord: 約3.6秒  
+- **VM 起動直後に発生**
+
+**通常リクエスト**
+
+- Total: 約218ms  
+- ActiveRecord: 約213ms  
+
+これにより：
+
+- SQL 自体は本質的に遅くない  
+- 遅延は **コールドスタート時のみ**発生  
+- アプリケーションコードやクエリ設計は **ボトルネックではない**
+
+---
+
+### 追加検証（curl による実測）
+
+```bash
+# 1回目（コールドスタート）
+time curl -o /dev/null -s https://backend-withered-voice-4962.fly.dev/api/books
+
+# 2回目（ウォーム）
+time curl -o /dev/null -s https://backend-withered-voice-4962.fly.dev/api/books
+```
+---
+
+### なぜ対策を行っていないか
+
+考えられる対策：
+
+- Fly.io マシンの常時起動  
+- Neon の有料プラン利用（コールドスタート回避）  
+- 定期 keep-alive ping の導入  
+
+本プロジェクトでは **意図的に未実施**とした。
+
+理由：
+
+- 本アプリは **ポートフォリオ用途**  
+- **完全無料のサーバーレス構成**での運用を前提としている  
+- コールドスタート遅延は **仕様上のトレードオフ**であり不具合ではない
+
+---
+
+### 結論
+
+観測された遅延は：
+
+- **インフラ起因である**
+- **再現性があり説明可能**
+- **無料サーバーレス運用の範囲では許容可能**
+
+したがって、  
+**アプリケーションレベルの最適化は不要**と判断した。
+
+---
+

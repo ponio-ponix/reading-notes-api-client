@@ -1,47 +1,45 @@
-cat > docs/architecture.md << 'EOF'
+# Architecture（実装現況）
+
 ## 1. システム全体構成
 
-- バックエンド: Ruby on Rails (APIモード)
-  - `/api/**` でJSONを返すREST API
-- フロントエンド: React + TypeScript (SPA)
-  - APIを `fetch` / `axios` で叩くクライアント
-- DB: PostgreSQL
-- 想定クライアント
-  - スマホブラウザ（片手操作前提）
-  - PCブラウザ（開発時・管理画面用）
-
-MVPでは認証なし（シングルユーザー前提）。  
-後からトークンベース認証を追加できる形だけ意識する。
+- バックエンド: Ruby on Rails 8.0.4（API-only モード）
+  - `config/application.rb`: `config.api_only = true`
+  - `/api/**` で JSON を返す REST API（6 エンドポイント）
+- フロントエンド: React 19 + TypeScript + Vite
+  - `fetch` で API を呼び出す SPA
+  - `vite.config.ts` で `/api` を `http://localhost:3000` にプロキシ
+- DB: PostgreSQL 16
+  - `docker-compose.yml`: `image: postgres:16`
+- 認証機構は存在しない（シングルユーザー前提）
 
 ---
 
-## 2. レイヤー構造（Rails側）
+## 2. レイヤー構造（Rails 側）
 
-### 2.1 レイヤー一覧
+実装上のレイヤーは以下の3層。Repository 層は存在しない。
 
-1. **Controller（Presentation層）**
-   - HTTPリクエスト → パラメータを受け取る
-   - Serviceを呼び出し、戻り値をJSONにして返す
-   - ロジックは極力書かない（薄く保つ）
+### 2.1 Controller（Presentation 層）
 
-2. **Service / UseCase（アプリケーション層）**
-   - 「何をするか」のユースケース単位の処理
-     - 例: 「本を登録する」「引用ノートを作成する」
-   - 複数のRepositoryを組み合わせる
-   - トランザクション境界をここに置く
+- HTTP リクエストからパラメータを受け取る
+- 一部のアクションは Service を呼び出し、戻り値を JSON にして返す
+- 一部のアクションは ActiveRecord モデルを直接操作している（後述 §3.1）
 
-3. **Repository（DAO層）**
-   - DBアクセス専用
-   - ActiveRecordモデルを直接触るのはここだけに寄せる
-   - 例:
-     - `BookRepository`
-     - `NoteRepository`
-     - `TagRepository`
+### 2.2 Service（Application 層）
 
-4. **Domain / Model（ドメイン層 + ActiveRecord）**
-   - `Book`, `Note`, `Tag`, `NoteTag`
-   - ドメインに近い簡単なバリデーションはモデル側に置いてOK
-   - ただし「ユースケース依存のロジック」はServiceに置く
+- ビジネスロジック・トランザクション制御を担当
+- 実在するクラス: `Notes::BulkCreate`, `Notes::SearchNotes` の 2 クラスのみ
+- `app/services/notes/` に配置
+
+### 2.3 Model（Domain 層 + ActiveRecord）
+
+- `Book`, `Note` の 2 モデル
+- バリデーション・コールバック・スコープをモデルに定義
+- ActiveRecord を直接使用（Repository 層による抽象化はない）
+
+### 2.4 存在しない層
+
+- **Repository 層**: `app/repositories/` は存在しない。Controller および Service が ActiveRecord モデルを直接操作している。
+- **UseCase 層**: 独立した UseCase クラスは存在しない。Service がその役割を兼ねている。
 
 ---
 
@@ -49,96 +47,159 @@ MVPでは認証なし（シングルユーザー前提）。
 
 ### 3.1 Controller
 
-- `Api::BooksController`
-  - `index` : 本一覧
-  - `create`: 本の作成
-- `Api::NotesController`
-  - `index` : 本ごとのノート一覧
-  - `create`: 引用ノートの作成
-  - `destroy`: ノート削除
+#### `Api::BooksController`（`app/controllers/api/books_controller.rb`）
 
-役割:
-- パラメータの取り出し・簡単な存在チェック
-- Serviceの呼び出し
-- HTTPステータス・JSONの組み立て
+| action | 処理内容 | ActiveRecord 直接操作 |
+|--------|---------|---------------------|
+| `index` | `Book.alive.order(created_at: :desc)` で取得し JSON 返却 | Yes |
+| `create` | `Book.new(book_params)` → `book.save` で作成 | Yes |
 
----
+Service を経由していない。Controller 内で ActiveRecord を直接呼んでいる。
 
-### 3.2 Service / UseCase
+#### `Api::NotesController`（`app/controllers/api/notes_controller.rb`）
 
-例:
+| action | 処理内容 | ActiveRecord 直接操作 |
+|--------|---------|---------------------|
+| `create` | `@book.notes.create!(note_params)` で作成 | Yes |
+| `destroy` | `Note.find(params[:id])` → `note.destroy!` で削除 | Yes |
 
-- `Books::CreateBookService`
-  - 入力: `title`, `author`
-  - 処理: バリデーション → `BookRepository` 経由で保存
-- `Notes::CreateNoteService`
-  - 入力: `book_id`, `page`, `quote`, `memo`, `tags`
-  - 処理:
-    - トランザクション開始
-    - Book存在チェック
-    - Note保存
-    - Tag作成 or 取得
-    - NoteTag紐づけ
-    - コミット
+`before_action :set_book` で `Book.alive.find(params[:book_id])` を実行。Service を経由していない。
 
----
+#### `Api::NotesBulkController`（`app/controllers/api/notes_bulk_controller.rb`）
 
-### 3.3 Repository（DAO）
+| action | 処理内容 | ActiveRecord 直接操作 |
+|--------|---------|---------------------|
+| `create` | `Notes::BulkCreate.call(...)` を呼び出し | No（Service 経由） |
 
-例:
+`notes_params` メソッドでリクエスト構造の検証（配列か、各要素がオブジェクトか）を行い、不正な場合は `ApplicationErrors::BadRequest` を raise する。
 
-- `BookRepository`
-  - `find(id)`
-  - `find_by_title(title)`
-  - `create(attrs)`
-- `NoteRepository`
-  - `find(id)`
-  - `find_by_book(book_id)`
-  - `create(attrs)`
-  - `delete(id)`
-- `TagRepository`
-  - `find_or_create_by_name(name)`
-- `NoteTagRepository`
-  - `attach(note_id, tag_id)`
-  - `detach(note_id, tag_id)`
+#### `Api::NotesSearchController`（`app/controllers/api/notes_search_controller.rb`）
 
-**ポイント:**
-- Controller/Service は ActiveRecord に直接触らない
-- `Repository` を介して DB と会話する構造にしておくことで、
-  DAO・トランザクション・SQLの話をしやすくする。
+| action | 処理内容 | ActiveRecord 直接操作 |
+|--------|---------|---------------------|
+| `index` | `Notes::SearchNotes.call(...)` を呼び出し | No（Service 経由） |
+
+#### `HealthController`（`app/controllers/health_controller.rb`）
+
+| action | 処理内容 |
+|--------|---------|
+| `show` | `{ ok: true }` を返す（`GET /healthz`） |
+
+`ActionController::API` を直接継承（`ApplicationController` ではない）。
 
 ---
 
-## 4. トランザクションと分離レベル
+### 3.2 Service
 
-- DB: PostgreSQL（デフォルトの `READ COMMITTED` 前提）
-- トランザクションを貼るのは **Service層**
+#### `Notes::BulkCreate`（`app/services/notes/bulk_create.rb`）
 
-例: `Notes::CreateNoteService` 内
+- 入力: `book_id`, `notes_params`（配列）
+- 処理:
+  1. 空配列チェック・上限チェック（MAX 20 件）→ 違反時 `ApplicationErrors::BadRequest`
+  2. `Book.alive.find(book_id)` で Book 取得 → 不在時 `ActiveRecord::RecordNotFound`
+  3. 全件のバリデーションを先に実行
+  4. 1 件でもエラーがあれば `BulkInvalid`（index + messages 付き）を raise
+  5. `ActiveRecord::Base.transaction { notes.each(&:save!) }` で一括保存
+- トランザクション: **あり**（L42-44）
+- 独自例外: `Notes::BulkCreate::BulkInvalid`（`errors` 属性に `[{ index:, messages: }]` を保持）
 
-- BEGIN TRANSACTION
-  - Note作成
-  - Tag作成 or 取得
-  - NoteTag関連付け
-- COMMIT
+#### `Notes::SearchNotes`（`app/services/notes/search_notes.rb`）
+
+- 入力: `book_id`, `query`, `page_from`, `page_to`, `page`, `limit`
+- 処理:
+  1. パラメータの正規化・型チェック → 違反時 `ApplicationErrors::BadRequest`
+  2. `Book.alive.find(book_id)` で Book 取得
+  3. `WHERE page >= ? AND page <= ?` でページ範囲絞り込み
+  4. `WHERE quote ILIKE :pattern OR memo ILIKE :pattern` でスペース区切り AND 検索
+  5. `ORDER BY created_at DESC` + OFFSET/LIMIT でページネーション
+- トランザクション: **なし**（読み取り専用のため）
+- 戻り値: `[records, meta]`（meta: `total_count`, `page`, `limit`, `total_pages`）
 
 ---
 
-## 5. エラーハンドリング方針
+### 3.3 Model
 
-- バリデーションエラー
-  - HTTP 422 (Unprocessable Entity)
-  - `{"errors": {...}}` 形式
-- リソースがない
-  - HTTP 404
-- サーバ内部エラー
-  - HTTP 500（ログを出す）
+#### `Book`（`app/models/book.rb`）
+
+```ruby
+has_many :notes
+scope :alive, -> { where(deleted_at: nil) }
+validates :title, presence: true
+```
+
+#### `Note`（`app/models/note.rb`）
+
+```ruby
+belongs_to :book
+validates :quote, presence: true, length: { maximum: 1000 }
+validates :memo,  length: { maximum: 2000 }, allow_nil: true
+validates :page,  numericality: { only_integer: true, greater_than_or_equal_to: 1 }
+before_validation :strip_text  # quote, memo の前後空白を除去
+```
+
+#### 存在しないモデル
+
+`Tag`, `NoteTag` は未実装。テーブル・モデルファイルともに存在しない。
 
 ---
 
-## 6. 認証 / 認可（MVP）
+## 4. DB スキーマ（`db/schema.rb`）
 
-- MVPではユーザー1人前提で認証なし
-- 後から JWT / session 認証を追加する前提で、
-  - Controllerで `current_user` 的な注入ポイントだけ用意しておく（ダミー実装でOK）
-EOF
+### books テーブル
+
+| カラム | 型 | 制約 |
+|--------|-----|------|
+| id | bigint PK | NOT NULL |
+| title | string | — |
+| author | string | — |
+| deleted_at | datetime | — |
+| created_at | datetime | NOT NULL |
+| updated_at | datetime | NOT NULL |
+
+インデックス: `index_books_on_deleted_at`
+
+### notes テーブル
+
+| カラム | 型 | 制約 |
+|--------|-----|------|
+| id | bigint PK | NOT NULL |
+| book_id | bigint FK | NOT NULL, references books (on_delete: :restrict) |
+| page | integer | NOT NULL, CHECK (page >= 1) |
+| quote | text | NOT NULL, CHECK (char_length(quote) <= 1000) |
+| memo | text | NULL 許容, CHECK (memo IS NULL OR char_length(memo) <= 2000) |
+| created_at | datetime | NOT NULL |
+| updated_at | datetime | NOT NULL |
+
+インデックス: `index_notes_on_book_id`, `index_notes_on_book_id_and_page`
+
+---
+
+## 5. トランザクション
+
+- `ActiveRecord::Base.transaction` が使われている箇所: `Notes::BulkCreate`（L42-44）の 1 箇所のみ
+- Controller にトランザクションは存在しない
+- 単件の Note 作成（`NotesController#create`）は `create!` 単発呼び出しであり、明示的なトランザクションは貼っていない
+
+---
+
+## 6. エラーハンドリング
+
+`ApplicationController`（`app/controllers/application_controller.rb`）に `rescue_from` を集約。
+
+| 例外 | ステータス | レスポンス形式 |
+|------|-----------|--------------|
+| `ApplicationErrors::BadRequest` | 400 | `{ "errors": ["message"] }` |
+| `ActiveRecord::RecordNotFound` | 404 | `{ "errors": ["message"] }` |
+| `Notes::BulkCreate::BulkInvalid` | 422 | `{ "errors": [{ "index": N, "messages": [...] }] }` |
+| `ActiveRecord::RecordInvalid` | 422 | `{ "errors": ["Full message 1", "Full message 2"] }` |
+| `ActiveRecord::RecordNotDestroyed` | 422 | `{ "errors": ["Full message 1"] }` |
+| `StandardError`（production のみ） | 500 | `{ "errors": ["Internal server error"] }` |
+
+エラーレスポンスのルート構造は全て `{ "errors": [...] }`（配列）。
+Bulk API のみ配列要素が `{ index:, messages: }` のオブジェクト形式。
+
+---
+
+## 7. 認証
+
+認証機構は存在しない。`current_user` メソッド・認証フィルタ・認証関連 gem のいずれも実装されていない。
