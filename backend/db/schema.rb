@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_19_061112) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_12_033104) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -25,14 +25,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_19_061112) do
 
   create_table "notes", force: :cascade do |t|
     t.bigint "book_id", null: false
-    t.integer "page"
+    t.integer "page", null: false
     t.text "quote", null: false
     t.text "memo"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["book_id", "page"], name: "index_notes_on_book_id_and_page"
     t.index ["book_id"], name: "index_notes_on_book_id"
     t.check_constraint "char_length(quote) <= 1000", name: "notes_quote_len"
     t.check_constraint "memo IS NULL OR char_length(memo) <= 2000", name: "notes_memo_len"
+    t.check_constraint "page >= 1", name: "notes_page_positive"
   end
 
   add_foreign_key "notes", "books", on_delete: :restrict

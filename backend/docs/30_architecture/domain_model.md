@@ -40,7 +40,7 @@ MVPではユーザーは1人想定（Userテーブルは後回し）。
 | updated_at | timestamp | NOT NULL                   | 更新日時     |
 
 インデックス:
-- `index_books_on_title`
+- `index_books_on_deleted_at`
 
 ---
 
@@ -49,10 +49,10 @@ MVPではユーザーは1人想定（Userテーブルは後回し）。
 | カラム名    | 型        | 制約                       | 説明                      |
 |------------|-----------|----------------------------|---------------------------|
 | id         | bigint PK | NOT NULL                   | 識別子                    |
-| book_id    | bigint FK | NOT NULL, references books | 紐づく本                  |
-| page       | integer   | NULL 可                    | ページ番号（紙の本前提）  |
-| quote      | text      | NOT NULL                   | 引用テキスト              |
-| memo       | text      | NULL 可                    | 自分のメモ                |
+| book_id    | bigint FK | NOT NULL, references books (on_delete: :restrict) | 紐づく本                  |
+| page       | integer   | NOT NULL, CHECK (page >= 1) | ページ番号                |
+| quote      | text      | NOT NULL, CHECK (char_length <= 1000) | 引用テキスト（最大1000文字） |
+| memo       | text      | NULL 可, CHECK (char_length <= 2000)  | 自分のメモ（最大2000文字）   |
 | created_at | timestamp | NOT NULL                   | 作成日時                  |
 | updated_at | timestamp | NOT NULL                   | 更新日時                  |
 
@@ -99,7 +99,7 @@ MVPではユーザーは1人想定（Userテーブルは後回し）。
   - 同じタイトルが複数あっても許容（著者が違う場合など）
 - Note
   - `quote` は必須
-  - `page` は整数・0以上（厳密にやるなら > 0）
+  - `page` は必須・整数・1以上（DB CHECK 制約）
 - Tag
   - `name` は必須・ユニーク
   - 小文字化・前後スペース除去など正規化してもよい
