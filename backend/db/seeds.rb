@@ -7,12 +7,14 @@
 #   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
-book = Book.first
+#   
+return if Rails.env.test?
+
+book = Book.first || Book.create!(title: "Seed Book", author: "Seed Author")
 
 12.times do |i|
-  book.notes.create!(
-    page:  i + 1,
-    quote: "引用 #{i + 1} のテキストです。",
-    memo:  "メモ #{i + 1}"
-  )
+  book.notes.find_or_create_by!(page: i + 1) do |note|
+    note.quote = "引用 #{i + 1} のテキストです。"
+    note.memo  = "メモ #{i + 1}"
+  end
 end
