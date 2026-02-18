@@ -11,4 +11,11 @@ Rails.application.routes.draw do
 
     resources :notes, only: [:destroy]
   end
+  
+  if Rails.env.development?
+    namespace :api do
+      post "debug/db_errors/:kind", to: "debug#db_errors"
+    end
+  end
+
 end
