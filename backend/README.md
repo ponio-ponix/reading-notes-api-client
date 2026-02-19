@@ -20,9 +20,10 @@ curl https://backend-withered-voice-4962.fly.dev/api/books
 本APIは以下を重視して設計した。
 
 - **DB制約によるデータ整合性の保証**
-  - NOT NULL / CHECK / FK を用いてアプリ層の不具合でも破壊的データを防ぐ
+  - NOT NULL（books.title, notes.page 等） / CHECK / FK を用いてアプリ層の不具合でも破壊的データを防ぐ
 - **例外系の統一**
-  - 422 / 404 / 500 を ApplicationController で一元処理
+  - 400 / 404 / 422 / 500 を ApplicationController で一元処理
+  - DB制約違反（NotNullViolation, InvalidForeignKey, RecordNotUnique, CheckViolation）は 422 に変換
 - **無料サーバーレス構成での実運用再現**
   - Fly.io + Neon による公開環境
   - コールドスタート遅延を含めて説明可能な状態
@@ -85,8 +86,9 @@ curl https://backend-withered-voice-4962.fly.dev/api/books
 # 起動（初回はビルド含む）
 docker compose up --build
 
-# 初回のみ DB マイグレーション
+# 初回のみ DB マイグレーション + シードデータ投入
 docker compose exec web bin/rails db:migrate
+docker compose exec web bin/rails db:seed
 ```
 
 ### 動作確認
@@ -152,6 +154,7 @@ backend/
 | [`docs/40_api/api_overview.md`](docs/40_api/api_overview.md) | API 仕様（エンドポイント詳細） |
 | [`docs/30_architecture/error_handling.md`](docs/30_architecture/error_handling.md) | エラーハンドリング設計 |
 | [`docs/30_architecture/transaction_boundary.md`](docs/30_architecture/transaction_boundary.md) | トランザクション境界 |
+| [`docs/30_architecture/debug_endpoints.md`](docs/30_architecture/debug_endpoints.md) | デバッグ用エンドポイント（development限定） |
 | [`docs/20_design/soft_delete_policy.md`](docs/20_design/soft_delete_policy.md) | 論理削除ポリシー |
 
 

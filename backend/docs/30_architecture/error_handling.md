@@ -99,15 +99,24 @@ Rails の `rescue_from` は **ハンドラが継承され**、例外発生時に
 
 ### 4xx（意図した失敗）
 - `ApplicationErrors::BadRequest` -> 400
+- `ActionController::ParameterMissing` -> 400
 - `ActiveRecord::RecordNotFound` -> 404
 - `ActiveRecord::RecordInvalid` / `RecordNotDestroyed` -> 422
 - `Notes::BulkCreate::BulkInvalid` -> 422（Bulk専用）
+
+### 422（DB制約違反）
+- `ActiveRecord::NotNullViolation` -> 422
+- `ActiveRecord::InvalidForeignKey` -> 422
+- `ActiveRecord::RecordNotUnique` -> 422
+- `ActiveRecord::CheckViolation` -> 422（`defined?` ガード付き）
+
+レスポンス: `{ "errors": ["DB constraint violated"] }`（固定メッセージ）
 
 ### 5xx（想定外 = バグ）
 - `StandardError` -> 500（production のみ）
 
 ### 禁止
-- `ArgumentError` を rescue_from して 400 に落とすことは禁止  
+- `ArgumentError` を rescue_from して 400 に落とすことは禁止
   （理由：バグまで 400 に変換して検知不能になる）
 
 ---

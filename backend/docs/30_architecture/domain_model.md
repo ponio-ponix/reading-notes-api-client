@@ -36,6 +36,7 @@ MVPではユーザーは1人想定（Userテーブルは後回し）。
 | id         | bigint PK | NOT NULL                   | 識別子       |
 | title      | varchar   | NOT NULL                   | 本のタイトル |
 | author     | varchar   | NULL 可                    | 著者名       |
+| deleted_at | timestamp | NULL 可                    | 論理削除日時 |
 | created_at | timestamp | NOT NULL                   | 作成日時     |
 | updated_at | timestamp | NOT NULL                   | 更新日時     |
 

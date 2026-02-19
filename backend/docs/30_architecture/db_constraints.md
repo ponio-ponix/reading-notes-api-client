@@ -7,6 +7,7 @@
 
 | 対象 | DB(schema) | Migration | 意図 | API/Model側の扱い | 備考 |
 |---|---|---|---|---|---|
+| books.title NOT NULL | schema: books.title null: false | 20260219104121_make_books_title_not_null.rb | Bookのタイトルは必須 | validates :title, presence: true | 既存NULLは空文字に変換後に制約追加 |
 | notes.book_id NOT NULL | schema: notes.book_id null: false | 20251201064428_create_notes.rb | Noteは必ずBookに属する | belongs_to :book |  |
 | FK notes.book_id → books.id (RESTRICT) | schema: add_foreign_key ... on_delete: :restrict | 20251215100955_change_notes_fk_on_delete_restrict.rb | Bookの物理削除でNoteを巻き込まない | Bookはソフトデリート運用 | RESTRICTで整合性維持 |
 | notes.quote NOT NULL | schema: notes.quote null: false | 20251215101917_make_notes_quote_not_null.rb | 引用は必須 | validates :quote, presence: true |  |

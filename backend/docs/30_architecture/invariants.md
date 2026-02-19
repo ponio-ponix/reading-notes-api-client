@@ -11,6 +11,15 @@
 
 # 1. モデル不変条件（Model-Level Invariants）
 
+## (0) Book.title は必須である
+- `NULL` 不可（DB NOT NULL 制約: `20260219104121_make_books_title_not_null.rb`）
+- 空文字は許容しない（Model: `validates :title, presence: true`）
+
+**Why**
+書籍タイトルは Book を識別する最低限の情報であり、省略を許可しない。
+
+---
+
 ## (1) Note は必ず Book に属する
 - `note.book_id` は **NULL 不可**
 - 存在しない `book_id` を参照しない（FK 制約）
