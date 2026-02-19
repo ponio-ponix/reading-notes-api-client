@@ -7,17 +7,32 @@ class Api::DebugController < ApplicationController
     case kind
     when "not_null"
       # NOT NULL違反を起こす（例：title が NOT NULL の books に null を入れる）
-      Book.create!(title: nil)
+      Book.insert_all!([{ title: nil, created_at: Time.current, updated_at: Time.current }])
     when "check"
       # CHECK違反を起こす（例：page >= 1 的な制約があるnotesに 0 を入れる）
-      Note.create!(page: 0, quote: "x", book_id: 1)
+      now = Time.current
+      bid = Book.first!.id
+      Note.insert_all!([{
+        page: 0,
+        quote: "x",
+        book_id: bid,
+        created_at: now,
+        updated_at: now
+      }])
     when "fk"
-      # FK違反を起こす（存在しない book_id）
-      Note.create!(page: 1, quote: "x", book_id: 999999)
+      Note.insert_all!([{
+        page: 1,
+        quote: "x",
+        book_id: 999999,
+        created_at: Time.current,
+        updated_at: Time.current
+      }])
     when "unique"
-      # UNIQUE違反（同じ値2回）
-      User.create!(email: "a@example.com")
-      User.create!(email: "a@example.com")
+      now = Time.current
+      User.insert_all!([
+        { email: "a@example.com", created_at: now, updated_at: now },
+        { email: "a@example.com", created_at: now, updated_at: now }
+      ])
     else
       render json: { errors: ["unknown kind"] }, status: :bad_request
     end
