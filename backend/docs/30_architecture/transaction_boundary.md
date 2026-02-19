@@ -57,15 +57,20 @@ API 仕様とトランザクション境界の整合性を保証する。
 
 #### 例外の分類と HTTP ステータスへのマッピング
 
-**実装箇所**: `app/controllers/application_controller.rb` (L2-7)
+**実装箇所**: `app/controllers/application_controller.rb` (L2-19)
 
 | 例外クラス | HTTP Status | 分類 | 実装確認 |
 |-----------|-------------|------|----------|
 | `ApplicationErrors::BadRequest` | 400 Bad Request | 想定内 | ✓ |
+| `ActionController::ParameterMissing` | 400 Bad Request | 想定内 | ✓ |
 | `ActiveRecord::RecordNotFound` | 404 Not Found | 想定内 | ✓ |
 | `ActiveRecord::RecordInvalid` | 422 Unprocessable Entity | 想定内 | ✓ |
 | `ActiveRecord::RecordNotDestroyed` | 422 Unprocessable Entity | 想定内 | ✓ |
 | `Notes::BulkCreate::BulkInvalid` | 422 Unprocessable Entity | 想定内 | ✓ |
+| `ActiveRecord::NotNullViolation` | 422 Unprocessable Entity | DB制約違反 | ✓ |
+| `ActiveRecord::InvalidForeignKey` | 422 Unprocessable Entity | DB制約違反 | ✓ |
+| `ActiveRecord::RecordNotUnique` | 422 Unprocessable Entity | DB制約違反 | ✓ |
+| `ActiveRecord::CheckViolation` | 422 Unprocessable Entity | DB制約違反 | ✓ (`defined?` ガード付き) |
 | `StandardError` (その他) | 500 Internal Server Error | 想定外 | ✓ (本番のみ) |
 
 **想定内エラー（400 / 422 系）:**
@@ -95,28 +100,19 @@ API 仕様とトランザクション境界の整合性を保証する。
 
 #### ログ出力ポリシー
 
-**実装箇所**: `app/controllers/application_controller.rb` (L27-33)
+**実装箇所**: `app/controllers/application_controller.rb` (L26-66)
 
-```ruby
-def render_internal_error(e)
-  logger.error "Internal Server Error: #{e.class} - #{e.message}"
-  logger.error e.backtrace.join("\n") if e.backtrace.present?
-
-  render json: { errors: ["Internal server error"] }, status: :internal_server_error
-end
-```
+全ハンドラでログ出力を行う。ログレベルはステータスに応じて使い分ける。
 
 **ログ出力の方針:**
 
-| エラー分類 | ログ出力 | 理由 |
-|-----------|---------|------|
-| 400 / 422 | 不要 | 想定内エラー、クライアント起因 |
-| 500 | 必須 | 想定外エラー、原因調査が必要 |
-
-**500 エラーログの内容:**
-- 例外クラス名
-- 例外メッセージ
-- スタックトレース全体
+| エラー分類 | ログレベル | 出力例 | 理由 |
+|-----------|-----------|--------|------|
+| 400 (BadRequest / ParameterMissing) | `warn` | `[400] ApplicationErrors::BadRequest: ...` | 不正リクエストの傾向把握 |
+| 404 | `info` | `[404] ActiveRecord::RecordNotFound: ...` | 想定内、頻度監視用 |
+| 422 (RecordInvalid / BulkInvalid) | `info` | `[422] ActiveRecord::RecordInvalid: ...` | 想定内、頻度監視用 |
+| 422 (DB制約違反) | `warn` | `[422][DB] ActiveRecord::NotNullViolation: ...` | モデルバリデーションをすり抜けた異常 |
+| 500 | `error` | `Internal Server Error: ...` + スタックトレース | 想定外エラー、原因調査が必要 |
 
 **本番環境のみの制約:**
 - `rescue_from StandardError` は本番環境でのみ有効（`if Rails.env.production?`）
@@ -131,13 +127,13 @@ end
 
 **Controller Layer の責務:**
 - `rescue_from` により例外を HTTP レスポンスに変換する
-- 500 系エラーのみログ出力を行う
+- 全ハンドラでログ出力を行う（レベルは warn / info / error で使い分け）
 - トランザクションの成否を HTTP ステータスで表現する
 
 **この分離の意図:**
 - Service は HTTP プロトコルに依存しない
 - Service は再利用可能（CLI / バッチ処理でも使える）
-- ログは「HTTP リクエストの失敗」として Controller で一元管理
+- ログは「HTTP リクエストの失敗」として Controller で一元管理（全ステータスでログ出力）
 
 #### スコープと制限事項
 

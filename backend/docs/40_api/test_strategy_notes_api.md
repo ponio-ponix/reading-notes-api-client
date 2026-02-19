@@ -35,6 +35,12 @@
 - 目的
   - バリデーション（必須／桁数）と関連（`has_many` / `belongs_to`）の正常系・異常系をざっと押さえる
 
+### 1.4 テストデータ生成
+
+- `factory_bot_rails` を導入済み（`Gemfile` group :development, :test）
+- `spec/rails_helper.rb` で `config.include FactoryBot::Syntax::Methods` を設定
+- ファクトリファイルは `spec/factories/` に配置予定（現時点では未作成、テスト内で直接生成）
+
 ---
 
 ## 2. Request Spec のイメージ

@@ -23,6 +23,7 @@ services:
       - db
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/app_development
+      DATABASE_URL_TEST: postgres://postgres:postgres@db:5432/app_test
       RAILS_ENV: development
 
 volumes:

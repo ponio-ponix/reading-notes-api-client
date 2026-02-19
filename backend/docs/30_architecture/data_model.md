@@ -17,8 +17,8 @@ Book (1) —— (N) Note
 - 複数冊の書籍を扱う前提のため
 - Note をグルーピングする最小単位として必須
 
-### バリデーション（暫定）
-- title: presence: true  
+### バリデーション
+- title: presence: true（DB NOT NULL 制約あり: `20260219104121_make_books_title_not_null.rb`）
 - author: 任意
 
 ### 拡張余地

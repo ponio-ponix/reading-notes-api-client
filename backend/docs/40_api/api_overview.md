@@ -544,6 +544,19 @@ Book が存在しない、または論理削除されている場合。
 
 すべてのエンドポイントで発生しうる共通エラー。
 
+**422 Unprocessable Entity（DB制約違反）**
+
+モデルバリデーションをすり抜けた入力が DB 制約に違反した場合。
+NotNullViolation / InvalidForeignKey / RecordNotUnique / CheckViolation が対象。
+
+```json
+{
+  "errors": [
+    "DB constraint violated"
+  ]
+}
+```
+
 **500 Internal Server Error**
 
 サーバ側の想定外エラー（本番環境のみ）。

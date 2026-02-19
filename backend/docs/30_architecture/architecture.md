@@ -87,6 +87,17 @@ Service を経由していない。Controller 内で ActiveRecord を直接呼�
 
 `ActionController::API` を直接継承（`ApplicationController` ではない）。
 
+#### `Api::DebugController`（`app/controllers/api/debug_controller.rb`）
+
+| action | 処理内容 |
+|--------|---------|
+| `db_errors` | `POST /api/debug/db_errors/:kind` — DB制約違反を意図的に再現する |
+
+- **development 環境限定**（`routes.rb`: `if Rails.env.development?`）
+- kind: `not_null` / `check` / `fk` / `unique`
+- `insert_all!` でモデルバリデーションをバイパスし、DB制約違反を直接発生させる
+- 詳細は [`docs/30_architecture/debug_endpoints.md`](debug_endpoints.md) を参照
+
 ---
 
 ### 3.2 Service
@@ -150,7 +161,7 @@ before_validation :strip_text  # quote, memo の前後空白を除去
 | カラム | 型 | 制約 |
 |--------|-----|------|
 | id | bigint PK | NOT NULL |
-| title | string | — |
+| title | string | NOT NULL |
 | author | string | — |
 | deleted_at | datetime | — |
 | created_at | datetime | NOT NULL |
@@ -186,17 +197,25 @@ before_validation :strip_text  # quote, memo の前後空白を除去
 
 `ApplicationController`（`app/controllers/application_controller.rb`）に `rescue_from` を集約。
 
-| 例外 | ステータス | レスポンス形式 |
-|------|-----------|--------------|
-| `ApplicationErrors::BadRequest` | 400 | `{ "errors": ["message"] }` |
-| `ActiveRecord::RecordNotFound` | 404 | `{ "errors": ["message"] }` |
-| `Notes::BulkCreate::BulkInvalid` | 422 | `{ "errors": [{ "index": N, "messages": [...] }] }` |
-| `ActiveRecord::RecordInvalid` | 422 | `{ "errors": ["Full message 1", "Full message 2"] }` |
-| `ActiveRecord::RecordNotDestroyed` | 422 | `{ "errors": ["Full message 1"] }` |
-| `StandardError`（production のみ） | 500 | `{ "errors": ["Internal server error"] }` |
+| 例外 | ステータス | レスポンス形式 | ログレベル |
+|------|-----------|--------------|-----------|
+| `ApplicationErrors::BadRequest` | 400 | `{ "errors": ["message"] }` | warn |
+| `ActionController::ParameterMissing` | 400 | `{ "errors": ["message"] }` | warn |
+| `ActiveRecord::RecordNotFound` | 404 | `{ "errors": ["message"] }` | info |
+| `Notes::BulkCreate::BulkInvalid` | 422 | `{ "errors": [{ "index": N, "messages": [...] }] }` | info |
+| `ActiveRecord::RecordInvalid` | 422 | `{ "errors": ["Full message 1", ...] }` | info |
+| `ActiveRecord::RecordNotDestroyed` | 422 | `{ "errors": ["Full message 1"] }` | info |
+| `ActiveRecord::NotNullViolation` | 422 | `{ "errors": ["DB constraint violated"] }` | warn |
+| `ActiveRecord::InvalidForeignKey` | 422 | `{ "errors": ["DB constraint violated"] }` | warn |
+| `ActiveRecord::RecordNotUnique` | 422 | `{ "errors": ["DB constraint violated"] }` | warn |
+| `ActiveRecord::CheckViolation`（※） | 422 | `{ "errors": ["DB constraint violated"] }` | warn |
+| `StandardError`（production のみ） | 500 | `{ "errors": ["Internal server error"] }` | error |
+
+※ `CheckViolation` は `defined?(ActiveRecord::CheckViolation)` ガード付き。
 
 エラーレスポンスのルート構造は全て `{ "errors": [...] }`（配列）。
 Bulk API のみ配列要素が `{ index:, messages: }` のオブジェクト形式。
+DB制約違反は固定メッセージ `"DB constraint violated"` で統一。
 
 ---
 
