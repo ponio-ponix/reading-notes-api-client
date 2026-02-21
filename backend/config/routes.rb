@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+   root to: "health#root"
    get "/healthz", to: "health#show"
 
   namespace :api do
