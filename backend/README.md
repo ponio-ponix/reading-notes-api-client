@@ -81,6 +81,8 @@ curl https://backend-withered-voice-4962.fly.dev/api/books
 ## 起動手順
 
 ### Docker Compose で起動
+※ PostgreSQL のポートはホストに公開していません。
+ローカルに PostgreSQL がインストールされていても衝突せず起動できます。
 
 ```bash
 # 起動（初回はビルド含む）
@@ -95,7 +97,8 @@ docker compose exec web bin/rails db:seed
 
 ```bash
 # Book 一覧取得
-curl -i http://localhost:3000/api/books
+curl -i http://localhost:3000/api/books \
+  -H "Accept: application/json"
 
 # Book 作成
 curl -i -X POST http://localhost:3000/api/books \
@@ -117,7 +120,7 @@ docker compose down -v
 
 ```bash
 # Docker 内で実行
-docker compose exec web bundle exec rspec
+docker compose exec -e RAILS_ENV=test web bundle exec rspec
 
 # ローカルで実行（Ruby/PostgreSQL がローカルにある場合）
 bundle exec rspec
