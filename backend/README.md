@@ -88,8 +88,10 @@ curl https://backend-withered-voice-4962.fly.dev/api/books
 # 起動（初回はビルド含む）
 docker compose up --build
 
-# 初回のみ DB マイグレーション + シードデータ投入
-docker compose exec web bin/rails db:migrate
+# 初回のみ（development DB の作成 + schema/migration 適用）
+docker compose exec web bin/rails db:prepare
+
+# 初回のみ（seed を入れたい場合）
 docker compose exec web bin/rails db:seed
 ```
 
@@ -119,10 +121,14 @@ docker compose down -v
 ## テスト
 
 ```bash
+# 初回のみ（test DB の作成 + schema/migration 適用）
+docker compose exec -e RAILS_ENV=test web bin/rails db:prepare
+
 # Docker 内で実行
 docker compose exec -e RAILS_ENV=test web bundle exec rspec
 
 # ローカルで実行（Ruby/PostgreSQL がローカルにある場合）
+RAILS_ENV=test bin/rails db:prepare
 bundle exec rspec
 ```
 
