@@ -1,3 +1,10 @@
+## Official Repository
+
+Primary repository:
+https://github.com/ponio-ponix/reading-notes
+
+This repository is the canonical and actively maintained source.
+
 # reading-notes (Backend API)
 
 読書中の引用・メモを **安全に保存し、後から高速に検索できる**  
@@ -73,3 +80,6 @@ curl -i https://backend-withered-voice-4962.fly.dev/api/books
 
 **本プロジェクトは、機能の多さよりもデータ整合性を優先し、小さくても信頼できるバックエンドAPIの実現を目的として設計しました。**
 
+MIT License
+
+Copyright (c) 2026 Kaoru Matsumoto
