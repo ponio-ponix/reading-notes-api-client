@@ -18,8 +18,30 @@ class ApplicationController < ActionController::API
   # CHECK違反（ある環境だけ）
   rescue_from ActiveRecord::CheckViolation, with: :render_db_constraint_violation if defined?(ActiveRecord::CheckViolation)
 
+  before_action :authenticate_user!
 
   private
+
+  attr_reader :current_user
+
+  def render_auth_unauthorized
+    render json: { error: { code: "unauthorized", message: "Authentication required" } },
+           status: :unauthorized
+  end
+
+  def authenticate_user!
+    auth = request.headers["Authorization"].to_s.strip
+  
+    return render_auth_unauthorized unless auth.start_with?("Bearer ")
+    raw = auth.delete_prefix("Bearer ").strip
+    return render_auth_unauthorized if raw.empty?
+  
+    digest = Digest::SHA256.hexdigest(raw)
+    token = AccessToken.active.find_by(token_digest: digest)
+    return render_auth_unauthorized unless token
+  
+    @current_user = token.user
+  end
 
   # DB制約系
   # 

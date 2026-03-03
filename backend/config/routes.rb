@@ -11,6 +11,10 @@ Rails.application.routes.draw do
     end
 
     resources :notes, only: [:destroy]
+    
+    namespace :auth do
+      post :login, to: "sessions#create"
+    end
   end
   
   if Rails.env.development?
