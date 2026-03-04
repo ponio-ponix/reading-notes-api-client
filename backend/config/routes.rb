@@ -13,7 +13,7 @@ Rails.application.routes.draw do
     resources :notes, only: [:destroy]
     
     namespace :auth do
-      post :login, to: "sessions#create"
+      resource :session, only: [:create, :destroy]
     end
   end
   
