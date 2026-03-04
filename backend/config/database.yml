@@ -22,11 +22,7 @@ default: &default
 
 development:
   <<: *default
-  host: localhost
-  port: 5432
-  username: postgres
-  password: postgres
-  database: app_development
+  url: <%= ENV.fetch("DATABASE_URL") %>
 
 
   # The specified database role being used to connect to PostgreSQL.
@@ -61,11 +57,7 @@ development:
 # Do not set this db to the same as development or production.
 test:
   <<: *default
-  host: localhost
-  port: 5432
-  username: postgres
-  password: postgres
-  database: app_test
+  url: <%= ENV.fetch("DATABASE_URL_TEST") %>
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is
