@@ -1,3 +1,5 @@
+require "digest"
+
 class ApplicationController < ActionController::API
   rescue_from StandardError, with: :render_internal_error if Rails.env.production?
 
@@ -31,16 +33,21 @@ class ApplicationController < ActionController::API
 
   def authenticate_user!
     auth = request.headers["Authorization"].to_s.strip
+
+    scheme, raw = auth.split(" ", 2)
   
-    return render_auth_unauthorized unless auth.start_with?("Bearer ")
-    raw = auth.delete_prefix("Bearer ").strip
-    return render_auth_unauthorized if raw.empty?
+    return render_auth_unauthorized unless scheme == "Bearer"
+    return render_auth_unauthorized if raw.blank?
   
-    digest = Digest::SHA256.hexdigest(raw)
+    digest = digest_token(raw)
     token = AccessToken.active.find_by(token_digest: digest)
     return render_auth_unauthorized unless token
   
     @current_user = token.user
+  end
+
+  def digest_token(raw)
+    Digest::SHA256.hexdigest(raw)
   end
 
   # DB制約系
