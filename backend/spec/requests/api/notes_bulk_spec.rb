@@ -1,7 +1,18 @@
 require 'rails_helper'
 
 RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
-  let!(:book) { Book.create!(title: "Test Book", author: "Author") }
+  let!(:user) do
+    User.create!(
+      email: "note-spec-#{SecureRandom.hex(4)}@example.com",
+      password: "password"
+    )
+  end
+  
+  before do
+    stub_authentication(user)
+  end
+
+  let!(:book) { Book.create!(user: user, title: "Test Book", author: "Author") }
 
   describe "成功ケース → 201 を返す" do
     context "when all notes are valid" do
@@ -65,12 +76,16 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
 
       json = JSON.parse(response.body, symbolize_names: true)
-      expect(json).to have_key(:errors)
-      expect(json[:errors]).to be_an(Array)
-      expect(json[:errors].size).to be >= 1
+
+      expect(json).to have_key(:error)
+      expect(json[:error]).to be_a(Hash)
+      expect(json[:error][:code]).to eq("unprocessable_entity")
+      expect(json[:error][:message]).to eq("Validation failed")
+      expect(json[:error][:details]).to be_an(Array)
+      expect(json[:error][:details]).not_to be_empty
 
       # BulkInvalid 形式: [{ index: N, messages: [...] }]
-      first_error = json[:errors].first
+      first_error = json[:error][:details].first
       expect(first_error).to have_key(:index)
       expect(first_error).to have_key(:messages)
       expect(first_error[:messages]).to be_an(Array)
@@ -78,7 +93,7 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
   end
 
   describe "BadRequest → 400 を返す" do
-    it "notes が nil → 400 'notes must be provided' (DB変化なし)" do
+    it "notes が nil のとき 400 を返す (DB変化なし)" do
       expect {
         post "/api/books/#{book.id}/notes/bulk", params: {}, as: :json
       }.not_to change { Note.count }
@@ -86,8 +101,9 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
       expect(response).to have_http_status(:bad_request)
 
       json = JSON.parse(response.body)
-      expect(json["errors"]).to be_an(Array)
-      expect(json["errors"].first).to include("notes must be provided")
+      expect(json["error"]).to be_a(Hash)
+      expect(json["error"]["code"]).to eq("bad_request")
+      expect(json["error"]["message"]).to eq("Bad request")
     end
 
     it "notes が配列じゃない → 400 'notes must be an array' (DB変化なし)" do
@@ -98,8 +114,9 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
       expect(response).to have_http_status(:bad_request)
 
       json = JSON.parse(response.body)
-      expect(json["errors"]).to be_an(Array)
-      expect(json["errors"].first).to include("notes must be an array")
+      expect(json["error"]).to be_a(Hash)
+      expect(json["error"]["code"]).to eq("bad_request")
+      expect(json["error"]["message"]).to eq("Bad request")
     end
 
     it "element が object じゃない → 400 'notes[0] must be an object' (DB変化なし)" do
@@ -110,8 +127,9 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
       expect(response).to have_http_status(:bad_request)
 
       json = JSON.parse(response.body)
-      expect(json["errors"]).to be_an(Array)
-      expect(json["errors"].first).to include("notes[0] must be an object")
+      expect(json["error"]).to be_a(Hash)
+      expect(json["error"]["code"]).to eq("bad_request")
+      expect(json["error"]["message"]).to eq("Bad request")
     end
   end
 

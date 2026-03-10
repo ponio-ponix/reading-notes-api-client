@@ -2,8 +2,19 @@
 require "rails_helper"
 
 RSpec.describe "Notes Search API", type: :request do
+  let!(:user) do
+    User.create!(
+      email: "note-spec-#{SecureRandom.hex(4)}@example.com",
+      password: "password"
+    )
+  end
+  
+  before do
+    stub_authentication(user)
+  end
+
   describe "GET /api/books/:book_id/notes_search" do
-    let!(:book) { Book.create!(title: "Test Book", author: "Author") }
+    let!(:book) { Book.create!(user: user, title: "Test Book", author: "Author") }
 
     def json
       JSON.parse(response.body)
@@ -63,24 +74,27 @@ RSpec.describe "Notes Search API", type: :request do
         get "/api/books/#{book.id}/notes_search", params: { page: "x" }
 
         expect(response).to have_http_status(:bad_request)
-        expect(json["errors"]).to be_an(Array)
-        expect(json["errors"]).not_to be_empty
+        expect(json["error"]).to be_a(Hash)
+        expect(json["error"]["code"]).to eq("bad_request")
+        expect(json["error"]["message"]).to eq("Bad request")
       end
 
       it "returns 400 when limit is not an integer" do
         get "/api/books/#{book.id}/notes_search", params: { limit: "x" }
 
         expect(response).to have_http_status(:bad_request)
-        expect(json["errors"]).to be_an(Array)
-        expect(json["errors"]).not_to be_empty
+        expect(json["error"]).to be_a(Hash)
+        expect(json["error"]["code"]).to eq("bad_request")
+        expect(json["error"]["message"]).to eq("Bad request")
       end
 
       it "returns 400 when page_from > page_to" do
         get "/api/books/#{book.id}/notes_search", params: { page_from: 3, page_to: 2 }
 
         expect(response).to have_http_status(:bad_request)
-        expect(json["errors"]).to be_an(Array)
-        expect(json["errors"]).not_to be_empty
+        expect(json["error"]).to be_a(Hash)
+        expect(json["error"]["code"]).to eq("bad_request")
+        expect(json["error"]["message"]).to eq("Bad request")
       end
     end
 

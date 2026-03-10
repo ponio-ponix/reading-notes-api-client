@@ -45,21 +45,26 @@ RSpec.describe "ApplicationController error mapping", type: :request do
   it "maps RecordNotFound to 404" do
     get "/__test__/not_found"
     expect(response).to have_http_status(:not_found)
-    expect(json["errors"]).to be_an(Array)
+    expect(json["error"]).to be_a(Hash)
+    expect(json["error"]["code"]).to eq("not_found")
+    expect(json["error"]["message"]).to be_present
   end
 
   it "maps BadRequest to 400" do
     get "/__test__/bad_request"
     expect(response).to have_http_status(:bad_request)
-    expect(json["errors"]).to be_an(Array)
+    expect(json["error"]).to be_a(Hash)
+    expect(json["error"]["code"]).to eq("bad_request")
+    expect(json["error"]["message"]).to be_present
   end
 
   it "maps BulkInvalid to 422 with bulk format" do
     get "/__test__/bulk_invalid"
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(json["errors"]).to be_an(Array)
-    expect(json["errors"].first).to have_key("index")
-    expect(json["errors"].first).to have_key("messages")
+    expect(json["error"]).to be_a(Hash)
+    expect(json["error"]["code"]).to eq("unprocessable_entity")
+    expect(json["error"]["details"]).to be_an(Array)
+    expect(json["error"]["details"]).not_to be_empty
   end
 
   it "raises unexpected errors in test env" do

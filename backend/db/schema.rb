@@ -10,9 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_19_104121) do
+ActiveRecord::Schema[8.0].define(version: 2026_03_04_072531) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "access_tokens", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token_digest", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "revoked_at"
+    t.datetime "last_used_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token_digest"], name: "index_access_tokens_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_access_tokens_on_user_id"
+  end
 
   create_table "books", force: :cascade do |t|
     t.string "title", null: false
@@ -20,7 +32,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_19_104121) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.datetime "deleted_at"
+    t.bigint "user_id", null: false
     t.index ["deleted_at"], name: "index_books_on_deleted_at"
+    t.index ["user_id"], name: "index_books_on_user_id"
   end
 
   create_table "notes", force: :cascade do |t|
@@ -37,5 +51,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_19_104121) do
     t.check_constraint "page >= 1", name: "notes_page_positive"
   end
 
+  create_table "users", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "password_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+  end
+
+  add_foreign_key "access_tokens", "users"
+  add_foreign_key "books", "users", on_delete: :restrict
   add_foreign_key "notes", "books", on_delete: :restrict
 end

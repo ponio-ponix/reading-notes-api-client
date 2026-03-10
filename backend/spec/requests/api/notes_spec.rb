@@ -1,56 +1,75 @@
-require 'rails_helper'
+require "rails_helper"
 
 RSpec.describe "Api::NotesController", type: :request do
-  describe "POST /api/books/:book_id/notes" do
-    let!(:book) { Book.create!(title: "Test Book", author: "Author") }
+  let!(:user) do
+    User.create!(
+      email: "notes-spec-#{SecureRandom.hex(4)}@example.com",
+      password: "password"
+    )
+  end
 
+  before do
+    stub_authentication(user)
+  end
+
+  let!(:book) { Book.create!(user: user, title: "Test Book", author: "Author") }
+
+  describe "POST /api/books/:book_id/notes" do
     context "when book exists" do
       it "creates a note and returns 201" do
-        payload = { note: { page: 1, quote: "Test Quote", memo: "Test Memo" } }
-
         expect {
-          post "/api/books/#{book.id}/notes", params: payload, as: :json
-        }.to change { Note.count }.by(1)
+          post "/api/books/#{book.id}/notes",
+               params: { note: { page: 1, quote: "Good quote", memo: "memo" } },
+               as: :json
+        }.to change(Note, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
-        expect(json["quote"]).to eq("Test Quote")
+        expect(json["book_id"]).to eq(book.id)
+        expect(json["page"]).to eq(1)
+        expect(json["quote"]).to eq("Good quote")
+        expect(json["memo"]).to eq("memo")
       end
     end
 
     context "when book does not exist" do
       it "returns 404 when book does not exist" do
         post "/api/books/999999/notes",
-             params: { note: { page: 1, quote: "Q" } },
+             params: { note: { page: 1, quote: "Good quote", memo: "memo" } },
              as: :json
 
         expect(response).to have_http_status(:not_found)
+        json = JSON.parse(response.body)
+        expect(json.dig("error", "code")).to eq("not_found")
+        expect(json.dig("error", "message")).to eq("Resource not found")
       end
     end
 
     context "when validation fails" do
       it "returns 422 when quote is blank after stripping whitespace" do
-        post "/api/books/#{book.id}/notes",
-             params: { note: { page: 1, quote: "   ", memo: "memo" } },
-             as: :json
+        expect {
+          post "/api/books/#{book.id}/notes",
+               params: { note: { page: 1, quote: "   ", memo: "memo" } },
+               as: :json
+        }.not_to change(Note, :count)
 
-        expect(response).to have_http_status(:unprocessable_content)
+        expect(response).to have_http_status(422)
         json = JSON.parse(response.body)
-        expect(json["errors"]).to be_an(Array)
-        expect(json["errors"]).not_to be_empty
+        expect(json.dig("error", "code")).to eq("unprocessable_entity")
+        expect(json.dig("error", "message")).to eq("Validation failed")
+        expect(json.dig("error", "details")).to include("Quote can't be blank")
       end
     end
   end
 
   describe "DELETE /api/notes/:id" do
-    let!(:book) { Book.create!(title: "Test Book", author: "Author") }
-    let!(:note) { book.notes.create!(page: 1, quote: "Test Quote", memo: "Test Memo") }
+    let!(:note) { Note.create!(book: book, page: 1, quote: "Good quote", memo: "memo") }
 
     context "when note exists" do
       it "deletes the note and returns 204" do
         expect {
           delete "/api/notes/#{note.id}"
-        }.to change { Note.count }.by(-1)
+        }.to change(Note, :count).by(-1)
 
         expect(response).to have_http_status(:no_content)
       end
@@ -62,8 +81,8 @@ RSpec.describe "Api::NotesController", type: :request do
 
         expect(response).to have_http_status(:not_found)
         json = JSON.parse(response.body)
-        expect(json["errors"]).to be_an(Array)
-        expect(json["errors"]).not_to be_empty
+        expect(json.dig("error", "code")).to eq("not_found")
+        expect(json.dig("error", "message")).to eq("Resource not found")
       end
     end
   end

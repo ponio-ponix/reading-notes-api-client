@@ -81,4 +81,10 @@ end
 
 RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods
+  config.include AuthHelpers, type: :request
+
+  config.before(:each, type: :request) do |example|
+    next if example.metadata[:auth] == :real
+    stub_authentication
+  end
 end

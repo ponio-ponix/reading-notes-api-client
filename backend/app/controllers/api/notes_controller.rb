@@ -18,7 +18,7 @@ module Api
     private
 
     def set_book
-      @book = Book.alive.find(params[:book_id])
+      @book = current_user.books.alive.find(params[:book_id])
     end
 
     def note_params

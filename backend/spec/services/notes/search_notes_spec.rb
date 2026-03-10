@@ -3,7 +3,14 @@ require 'rails_helper'
 
 RSpec.describe Notes::SearchNotes, type: :service do
   describe '.call' do
-    let!(:book)  { Book.create!(title: "テスト本", author: "著者") }
+    let!(:user) do
+      User.create!(
+        email: "search-spec-#{SecureRandom.hex(4)}@example.com",
+        password: "password"
+      )
+    end
+    
+    let!(:book) { Book.create!(user: user, title: "テスト本", author: "著者") }
 
     let!(:note1) do
       Note.create!(
