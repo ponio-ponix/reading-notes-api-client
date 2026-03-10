@@ -1,11 +1,11 @@
 require "rails_helper"
 
 RSpec.describe "Auth::Login", type: :request do
-  describe "POST /api/auth/login" do
+  describe "POST /api/auth/session" do
     let!(:user) { User.create!(email: "me@example.com", password: "password") }
 
     it "returns token when credentials are valid" do
-      post "/api/auth/login",
+      post "/api/auth/session",
            params: { email: "me@example.com", password: "password" },
            as: :json
 

@@ -1,7 +1,18 @@
 require 'rails_helper'
 
 RSpec.describe Note, type: :model do
-  let(:book) { Book.create!(title: "Test Book", author: "Author") }
+  let!(:user) do
+    User.create!(
+      email: "note-spec-#{SecureRandom.hex(4)}@example.com",
+      password: "password"
+    )
+  end
+  
+  user = User.create!(
+  email: "note-callback-#{SecureRandom.hex(4)}@example.com",
+  password: "password"
+  )
+  book = Book.create!(user: user, title: "Test Book", author: "Author")
   subject(:note) { Note.new(book: book, quote: "quote", page: 1, memo: nil) }
 
   describe "validations" do

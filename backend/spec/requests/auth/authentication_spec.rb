@@ -4,10 +4,12 @@ RSpec.describe "Authentication", type: :request, auth: :real do
   let!(:user) { User.create!(email: "me@example.com", password: "password") }
 
   def login_and_get_token
-    post "/api/auth/login",
+    post "/api/auth/session",
          params: { email: "me@example.com", password: "password" },
          as: :json
-
+  
+    expect(response).to have_http_status(:ok)
+  
     JSON.parse(response.body)["token"]
   end
 
