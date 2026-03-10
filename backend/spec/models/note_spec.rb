@@ -7,12 +7,9 @@ RSpec.describe Note, type: :model do
       password: "password"
     )
   end
-  
-  user = User.create!(
-  email: "note-callback-#{SecureRandom.hex(4)}@example.com",
-  password: "password"
-  )
-  book = Book.create!(user: user, title: "Test Book", author: "Author")
+
+  let!(:book) { Book.create!(user: user, title: "Test Book", author: "Author") }
+
   subject(:note) { Note.new(book: book, quote: "quote", page: 1, memo: nil) }
 
   describe "validations" do
@@ -35,13 +32,12 @@ RSpec.describe Note, type: :model do
   describe "callbacks" do
     describe "#strip_text" do
       it "strips whitespace from quote and memo before validation" do
-        book = Book.create!(title: "Test Book", author: "Author")
-        note = book.notes.build(quote: "  test quote  ", memo: "  test memo  ", page: 1)
+          note = book.notes.build(quote: "  test quote  ", memo: "  test memo  ", page: 1)
 
-        note.valid?
+          note.valid?
 
-        expect(note.quote).to eq("test quote")
-        expect(note.memo).to eq("test memo")
+          expect(note.quote).to eq("test quote")
+          expect(note.memo).to eq("test memo")
       end
     end
   end

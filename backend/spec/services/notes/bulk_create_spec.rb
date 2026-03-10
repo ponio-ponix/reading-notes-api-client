@@ -2,7 +2,14 @@
 require "rails_helper"
 
 RSpec.describe Notes::BulkCreate do
-  let!(:book) { Book.create!(title: "Test Book", author: "Someone") }
+  let!(:user) do
+    User.create!(
+      email: "bulk-spec-#{SecureRandom.hex(4)}@example.com",
+      password: "password"
+    )
+  end
+  
+  let!(:book) { Book.create!(user: user, title: "Test Book", author: "Someone") }
 
   describe ".call" do
     context "正常系: 2件とも valid なとき" do
