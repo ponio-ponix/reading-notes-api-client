@@ -1,5 +1,6 @@
 module Api
   class BooksController < ApplicationController
+    before_action :authenticate_user!
 
     def index
       books = current_user.books.alive.order(created_at: :desc)

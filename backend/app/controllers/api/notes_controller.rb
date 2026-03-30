@@ -1,6 +1,7 @@
 module Api
   class NotesController < ApplicationController
 
+    before_action :authenticate_user!
     before_action :set_book, only: [:create]
 
     def create
