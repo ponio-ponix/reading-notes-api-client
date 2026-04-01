@@ -15,6 +15,7 @@ Rails.application.routes.draw do
     namespace :auth do
       resource :session, only: [:create, :destroy]
     end
+    resources :users, only: [:create]
   end
   
   if Rails.env.development?
