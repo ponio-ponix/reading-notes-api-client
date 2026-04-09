@@ -14,19 +14,40 @@ RSpec.describe "Authentication", type: :request, auth: :real do
   end
 
   describe "GET /api/books" do
-    it "returns 401 without Authorization header" do
-      get "/api/books"
 
-      expect(response).to have_http_status(:unauthorized)
+    context "正常系" do
+      it "returns 200 with valid Bearer token" do
+        token = login_and_get_token
+  
+        get "/api/books",
+            headers: { "Authorization" => "Bearer #{token}" }
+  
+        expect(response).to have_http_status(:ok)
+      end
+      
     end
 
-    it "returns 200 with valid Bearer token" do
-      token = login_and_get_token
+    context "異常系" do
+      it "returns 401 without Authorization header" do
+        get "/api/books"
+  
+        expect(response).to have_http_status(:unauthorized)
+        puts response.body
+      end
 
-      get "/api/books",
-          headers: { "Authorization" => "Bearer #{token}" }
+      it "authorizationのtokenがクライアントからのrawの情報でない場合" do
+        get "/api/books",
+          headers: { "Authorization" => "Bearer aaaaaaooooo" },
+          as: :json
+        puts response.body
 
-      expect(response).to have_http_status(:ok)
+        expect(response).to have_http_status(:unauthorized)
+
+        
+      end
     end
+
+
+
   end
 end
