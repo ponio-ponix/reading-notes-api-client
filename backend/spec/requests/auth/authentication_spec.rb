@@ -42,8 +42,14 @@ RSpec.describe "Authentication", type: :request, auth: :real do
         puts response.body
 
         expect(response).to have_http_status(:unauthorized)
+      end
 
-        
+      it "Authorization header が Bearer のみのとき 401" do
+        get "/api/books",
+        headers: { "Authorization" => "Bearer " },
+        as: :json
+
+        expect(response).to have_http_status(:unauthorized)
       end
     end
 
