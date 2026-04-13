@@ -1,4 +1,5 @@
 require "rails_helper"
+require "digest"
 
 RSpec.describe "Authentication", type: :request, auth: :real do
   let!(:user) { User.create!(email: "me@example.com", password: "password") }
@@ -14,6 +15,8 @@ RSpec.describe "Authentication", type: :request, auth: :real do
   end
 
   describe "GET /api/books" do
+    let(:email) { "auth-spec-#{SecureRandom.hex(4)}@example.com" }
+    let(:password) { "password" }
 
     context "正常系" do
       it "returns 200 with valid Bearer token" do
@@ -51,9 +54,29 @@ RSpec.describe "Authentication", type: :request, auth: :real do
 
         expect(response).to have_http_status(:unauthorized)
       end
+
+      it "Authorization header が Bearer ではあるが、token が active 条件を満たさないとき 401" do
+
+        user = User.create!(email: email, password: password)
+  
+        raw = SecureRandom.hex(32)
+        digest = Digest::SHA256.hexdigest(raw)
+  
+        AccessToken.create!(
+          user: user,
+          token_digest: digest,
+          expires_at: 1.second.ago
+        )
+  
+        get "/api/books",
+        headers: { "Authorization" => "Bearer #{raw}"},
+        as: :json
+  
+        expect(response).to have_http_status(:unauthorized)
+
+        puts response.body
+  
+      end
     end
-
-
-
   end
 end
