@@ -4,13 +4,20 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
   let!(:user) { User.create!(email: "me@example.com", password: "password", password_confirmation: "password") }
 
   describe "POST /api/auth/session" do
+    let(:email) { "auth-spec-#{SecureRandom.hex(4)}@example.com" }
+    let(:password) { "password" }
 
     context "正常系" do
       it "returns token on success" do
         post "/api/auth/session", params: { email: user.email, password: "password" }, as: :json
         expect(response).to have_http_status(:ok)
+
+        puts response.body
+
   
         body = JSON.parse(response.body)
+
+        puts body["token"]
         expect(body["token"]).to be_present
       end
 
@@ -18,6 +25,28 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
         expect {
           post "/api/auth/session", params: { email: user.email, password: "password" }, as: :json
         }.to change(AccessToken, :count).by(1)
+      end
+
+
+      it "ログイン成功時、raw tokenは返るがDBにはdigestしか保存されない" do
+        post "/api/auth/session", params: { email: user.email, password: "password" }, as: :json
+        expect(response).to have_http_status(:ok)
+        # 
+
+        body = JSON.parse(response.body)
+        puts "トークンの内容 #{body["token"]}"
+
+        responseDigest = Digest::SHA256.hexdigest(body["token"])
+
+        user1 = User.find_by(email: user.email)
+
+        user_AccessToken = AccessToken.find_by(user: user1)
+        puts "digest #{user_AccessToken.token_digest}"
+
+        expect(body["token"]).not_to eq(user_AccessToken.token_digest)
+        expect(responseDigest).to eq(user_AccessToken.token_digest)
+
+        #dbのカラムの確認をする
       end
             
     end
