@@ -1,6 +1,7 @@
 module Api
   class NotesController < ApplicationController
 
+    before_action :authenticate_user!, only: [:create, :destroy]
     before_action :set_book, only: [:create]
 
     def create
@@ -10,7 +11,7 @@ module Api
     end
 
     def destroy
-      note = Note.find(params[:id])
+      note = current_user.book.notes.find(params[:id])
       note.destroy!
       head :no_content
     end
