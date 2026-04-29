@@ -1,6 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe "Api::Users", type: :request do
+  #すでに登録してあるemailで再度登録しようとした場合の先に用意しておくuserなのでランダムにしない
   let!(:example_user) do
     User.create!(
       email: "abab@example.com",
@@ -8,15 +9,13 @@ RSpec.describe "Api::Users", type: :request do
     )
   end
 
-
   describe "POST /api/users" do
 
     context "正常系" do
       it "emailとパスワードが登録できること" do
         post "/api/users",
-          params: { email: "note-spec-#{SecureRandom.hex(4)}@example.com", password: "password"} ,
+          params: { user: { name: "test", email: "notes-spec-#{SecureRandom.hex(4)}@example.com", password: "password", password_confirmation: "password"}}, 
           as: :json
-          # puts response.body
           expect(response).to have_http_status(:created)
       end
     end
@@ -27,7 +26,7 @@ RSpec.describe "Api::Users", type: :request do
         it "emailが空文字" do
    
           post "/api/users",
-                params: { email: "", password: "password" },
+                params: { user: {email: "", password: "password"}},
                 as: :json
           
           expect(response).to have_http_status(:unprocessable_entity)
@@ -35,7 +34,7 @@ RSpec.describe "Api::Users", type: :request do
     
         it "パスワードが空文字" do
           post "/api/users",
-              params: { email: "note-spec-#{SecureRandom.hex(4)}@example.com", password: ""},
+              params: { user: {email: "note-spec-#{SecureRandom.hex(4)}@example.com", password: ""}},
               as: :json
           
           expect(response).to have_http_status(:unprocessable_entity)
@@ -45,7 +44,7 @@ RSpec.describe "Api::Users", type: :request do
         it "emailがnil" do
        
           post "/api/users",
-                params: { email: nil, password: "password" },
+                params: { user: {email: nil, password: "password" }},
                 as: :json
     
           expect(response).to have_http_status(:unprocessable_entity)
@@ -54,7 +53,7 @@ RSpec.describe "Api::Users", type: :request do
         it "パスワードがnil" do
        
           post "/api/users",
-                params: { email: "note-spec-#{SecureRandom.hex(4)}@example.com", password: nil },
+                params: { user: {email: "note-spec-#{SecureRandom.hex(4)}@example.com", password: nil }},
                 as: :json
           
           expect(response).to have_http_status(:unprocessable_entity)
@@ -62,7 +61,7 @@ RSpec.describe "Api::Users", type: :request do
         it "emailのキー自体がない" do
         
           post "/api/users",
-                params: { password: "password" },
+                params: { user: {password: "password"} },
                 as: :json
     
           expect(response).to have_http_status(:unprocessable_entity)
@@ -71,7 +70,7 @@ RSpec.describe "Api::Users", type: :request do
         it "パスワードのキー自体がない" do
         
           post "/api/users",
-                params: { email: "note-spec-#{SecureRandom.hex(4)}@example.com" },
+                params: { user: {email: "note-spec-#{SecureRandom.hex(4)}@example.com"}},
                 as: :json
           
           expect(response).to have_http_status(:unprocessable_entity)
@@ -81,7 +80,7 @@ RSpec.describe "Api::Users", type: :request do
         it "すでに登録してあるemailで再度登録しようとした場合" do
       
           post "/api/users",
-                params: { email: "abab@example.com", password: "password"},
+                params: { user: {email: "abab@example.com", password: "password"}},
                 as: :json
           
           expect(response).to have_http_status(:unprocessable_entity)
@@ -91,7 +90,7 @@ RSpec.describe "Api::Users", type: :request do
       context "形式不正" do
         it "emailの形式不正" do
           post "/api/users",
-            params: { email: "note-spec-#{SecureRandom.hex(4)}example.com", password: "password"} ,
+            params: { user: {email: "note-spec-#{SecureRandom.hex(4)}example.com", password: "password"}},
             as: :json
     
           expect(response).to have_http_status(:unprocessable_entity)
