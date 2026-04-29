@@ -3,8 +3,10 @@ require "rails_helper"
 RSpec.describe "Api::NotesController", type: :request do
   let!(:user) do
     User.create!(
+      # name: "aaaa",
       email: "notes-spec-#{SecureRandom.hex(4)}@example.com",
       password: "password"
+      # password_confirmation: "password"
     )
   end
 
@@ -68,7 +70,7 @@ RSpec.describe "Api::NotesController", type: :request do
     context "when note exists" do
       it "deletes the note and returns 204" do
         expect {
-          delete "/api/notes/#{note.id}"
+          delete "/api/books/#{book.id}/notes/#{note.id}"
         }.to change(Note, :count).by(-1)
 
         expect(response).to have_http_status(:no_content)
@@ -77,7 +79,7 @@ RSpec.describe "Api::NotesController", type: :request do
 
     context "when note does not exist" do
       it "returns 404 when note is not found" do
-        delete "/api/notes/999999"
+        delete "/api/books/#{book.id}/notes/99999999"
 
         expect(response).to have_http_status(:not_found)
         json = JSON.parse(response.body)
