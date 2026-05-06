@@ -5,7 +5,14 @@ require "rails_helper"
 RSpec.describe "Api::Books", type: :request do
   let!(:user) do
     User.create!(
-      email: "books-spec-#{SecureRandom.hex(4)}@example.com",
+      email: "books1-spec-#{SecureRandom.hex(4)}@example.com",
+      password: "password"
+    )
+  end
+
+  let!(:user2) do
+    User.create!(
+      email: "books2-spec-#{SecureRandom.hex(4)}@example.com",
       password: "password"
     )
   end
@@ -15,38 +22,66 @@ RSpec.describe "Api::Books", type: :request do
   end
 
   describe "GET /api/books" do
-    it "returns 200 with an array" do
-      Book.create!(user: user, title: "Book A", author: "Author A")
-      Book.create!(user: user, title: "Book B", author: "Author B")
+    context "正常系" do
+      it "returns 200 with an array" do
+        Book.create!(user: user, title: "Book A", author: "Author A")
+        Book.create!(user: user, title: "Book B", author: "Author B")
 
-      get "/api/books"
+        get "/api/books"
 
-      expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
-      expect(json).to be_an(Array)
-      expect(json.first).to include("id", "title", "author")
+        expect(response).to have_http_status(:ok)
+        json = JSON.parse(response.body)
+        expect(json).to be_an(Array)
+        expect(json.first).to include("id", "title", "author")
+      end
+
+      it "returns 200 with books ordered by created_at desc" do
+        Book.create!(
+          user: user,
+          title: "Book A",
+          author: "A",
+          created_at: Time.zone.parse("2020-01-01 00:00:00")
+        )
+        Book.create!(
+          user: user,
+          title: "Book B",
+          author: "B",
+          created_at: Time.zone.parse("2020-01-02 00:00:00")
+        )
+
+        get "/api/books"
+
+        expect(response).to have_http_status(:ok)
+        json = JSON.parse(response.body)
+        expect(json.map { _1.keys }).to all(include("id", "title", "author"))
+        expect(json.map { _1["title"] }).to eq(["Book B", "Book A"])
+      end
+
+      it "認証済みユーザーのbookのみ返る" do
+        book = Book.create!(
+          user: user,
+          title: "Book B",
+          author: "B",
+          created_at: Time.zone.parse("2020-01-02 00:00:00")
+        )
+        book2 = Book.create!(
+          user: user2,
+          title: "userBook 2",
+          author: "user2",
+          created_at: Time.zone.parse("2020-01-03 00:00:00")
+        )
+        get "/api/books"
+
+        json = JSON.parse(response.body)
+        ids = json.map { |book| book["id"] }
+
+        expect(ids).to include(book.id)
+        expect(ids).not_to include(book2.id)
+      end
     end
 
-    it "returns 200 with books ordered by created_at desc" do
-      Book.create!(
-        user: user,
-        title: "Book A",
-        author: "A",
-        created_at: Time.zone.parse("2020-01-01 00:00:00")
-      )
-      Book.create!(
-        user: user,
-        title: "Book B",
-        author: "B",
-        created_at: Time.zone.parse("2020-01-02 00:00:00")
-      )
+    context "異常系" do  
 
-      get "/api/books"
-
-      expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
-      expect(json.map { _1.keys }).to all(include("id", "title", "author"))
-      expect(json.map { _1["title"] }).to eq(["Book B", "Book A"])
     end
   end
 
