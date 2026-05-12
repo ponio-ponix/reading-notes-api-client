@@ -59,13 +59,13 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
     end
   end
 
-  describe "auth + logout flow" do
+  describe "DELETE /api/auth/session" do
     context "正常系" do
       
     end
 
     context "異常系" do
-      it "blocks without bearer and blocks after logout" do
+      it "Bearer tokenなしのアクセスと、logout後の同じtokenでのアクセスを拒否する" do
         # no bearer -> 401
         get "/api/books"
         expect(response).to have_http_status(:unauthorized)
