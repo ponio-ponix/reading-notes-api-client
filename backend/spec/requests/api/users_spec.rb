@@ -18,6 +18,25 @@ RSpec.describe "Api::Users", type: :request do
           as: :json
           expect(response).to have_http_status(:created)
       end
+
+      it "ユーザー作成成功時にid,name,emailを返し、password_digestを返さない" do
+        name = "test"
+        email = "notes-spec-#{SecureRandom.hex(4)}@example.com"
+
+        post "/api/users",
+          params: { user: { name: name, email: email, password: "password", password_confirmation: "password"}}, 
+          as: :json
+
+          json = JSON.parse(response.body)
+
+          user_byemail = User.find_by(email: email)
+
+          expect(json["name"]).to eq(name)
+          expect(json["email"]).to eq(email)
+          expect(json["id"]).to eq(user_byemail.id)
+          expect(json.key?("password_digest")).to eq(false)
+      end
+        
     end
 
     context "異常系" do

@@ -77,6 +77,24 @@ RSpec.describe "Authentication", type: :request, auth: :real do
         puts response.body
   
       end
+
+      it "revoked_atが設定されたtokenでGET /api/booksが401になること" do
+        token = login_and_get_token
+  
+        get "/api/books",
+            headers: { "Authorization" => "Bearer #{token}" }
+        expect(response).to have_http_status(:ok)
+
+        digest = Digest::SHA256.hexdigest(token)
+        find_token = AccessToken.find_by(token_digest: digest)
+
+        find_token.update!(revoked_at: Time.current)
+
+        get "/api/books",
+
+            headers: { "Authorization" => "Bearer #{token}" }
+        expect(response).to have_http_status(:unauthorized)
+      end
     end
   end
 end

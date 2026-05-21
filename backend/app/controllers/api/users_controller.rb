@@ -3,8 +3,9 @@ class Api::UsersController < ApplicationController
   
   def create
     # has_secure_password により password を渡すと password_digest に保存される
-    User.create!(users_params)
-    render json: {text: "ok"}, status: :created
+    user = User.create!(users_params)
+    render json: user.as_json(only: [:id, :name, :email]), status: :created
+    
     
   end
 
