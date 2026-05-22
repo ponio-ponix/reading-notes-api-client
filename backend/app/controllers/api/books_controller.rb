@@ -13,6 +13,12 @@ module Api
       render json: book.as_json(only: [:id, :title, :author]), status: :created
     end
 
+    def destroy
+      book = current_user.books.alive.find(params[:id])
+      book.update(deleted_at: Time.current)
+      head :no_content
+    end
+
     private
 
     def book_params
