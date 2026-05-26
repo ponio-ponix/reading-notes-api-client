@@ -79,7 +79,7 @@ RSpec.describe "Api::Books", type: :request do
         expect(ids).not_to include(book2.id)
       end
 
-      it "認証済みユーザーが自分のbookを削除できる" do
+      it "（論理削除）認証済みユーザーが自分のbookを削除すると204を返し、その後一覧から除去されdeleted_atが入ること" do
         book = Book.create!(
           user: user,
           title: "Book C",
@@ -92,14 +92,22 @@ RSpec.describe "Api::Books", type: :request do
         
         expect(json.map{|n| n["title"]}).to include("Book C")
         
-        id = json.map { |n| n["id"] }[0]
+        id = book.id
 
         delete "/api/books/#{id}"
-        get "/api/books"
+        delete_response_status = response.status
 
+        expect(delete_response_status).to eq(204)
+        
+        get "/api/books"
         json = JSON.parse(response.body)
 
+
         expect(json.map{|n| n["title"]}).not_to include("Book C")
+
+        deleted_book = user.books.find(id)
+        expect(deleted_book.deleted_at).not_to be_nil
+
       end
     end
 
