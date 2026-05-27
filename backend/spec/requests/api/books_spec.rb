@@ -109,6 +109,30 @@ RSpec.describe "Api::Books", type: :request do
         expect(deleted_book.deleted_at).not_to be_nil
 
       end
+
+      it "認証済みユーザーは他人のbookを削除できない" do
+        anotherUserBook = Book.create!(
+          user: user2,
+          title: "another User Book",
+          author: "Mr.another",
+          created_at: Time.zone.parse("2020-01-05 00:00:00")
+        )
+
+        another_id = anotherUserBook.id
+
+        delete "/api/books/#{another_id}"
+        json2 = JSON.parse(response.body)
+
+        expect(json2["error"]["code"]).to eq(:not_found)
+
+        expect(response.status).to eq(404)
+        
+        another_book = user2.books.alive.find(another_id)
+
+        expect(another_book.deleted_at).to be_nil
+        expect(Book.exists?(anotherUserBook.id)).to eq(true)
+
+      end
     end
 
     context "異常系" do  
