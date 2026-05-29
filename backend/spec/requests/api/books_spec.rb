@@ -123,7 +123,7 @@ RSpec.describe "Api::Books", type: :request do
         delete "/api/books/#{another_id}"
         json2 = JSON.parse(response.body)
 
-        expect(json2["error"]["code"]).to eq(:not_found)
+        expect(json2["error"]["code"]).to eq("not_found")
 
         expect(response.status).to eq(404)
         
