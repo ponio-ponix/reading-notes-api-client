@@ -22,7 +22,7 @@ RSpec.describe Notes::BulkCreate do
 
       it "2件とも作成されて戻り値にも含まれる" do
         expect {
-          result = described_class.call(book_id: book.id, notes_params: params)
+          result = described_class.call(book: book, notes_params: params)
 
           expect(result.size).to eq 2
           expect(result.map(&:quote)).to match_array %w[hello world]
@@ -41,7 +41,7 @@ RSpec.describe Notes::BulkCreate do
 
       it "BulkInvalid を投げ、1件も作成されない" do
         expect {
-          described_class.call(book_id: book.id, notes_params: params)
+          described_class.call(book: book, notes_params: params)
         }.to raise_error(Notes::BulkCreate::BulkInvalid) { |e|
           expect(e.errors.size).to eq 1
           expect(e.errors.first[:index]).to eq 0
@@ -52,41 +52,15 @@ RSpec.describe Notes::BulkCreate do
       end
     end
 
-    context "when book is soft-deleted" do
-      let(:params) { [{ page: 1, quote: "ok", memo: nil }] }   
-      it "raises ActiveRecord::RecordNotFound" do
-        book.update!(deleted_at: Time.current)
-    
-        expect {
-          described_class.call(book_id: book.id, notes_params: params)
-        }.to raise_error(ActiveRecord::RecordNotFound)
-      end
-    end
-
-
     context "前提違反: notes が配列じゃないとき" do
       it "BadRequest を投げ、1件も作成されない" do
         expect {
-          described_class.call(book_id: book.id, notes_params: "x")
+          described_class.call(book: book, notes_params: "x")
         }.to raise_error(ApplicationErrors::BadRequest, /notes must be a non-empty array/)
 
         expect(Note.where(book_id: book.id).count).to eq 0
       end
     end
-
-
-    context "前提違反: book が存在しないとき" do
-      it "ActiveRecord::RecordNotFound を投げ、1件も作成されない" do
-        params = [{ page: 1, quote: "ok", memo: nil }]
-
-        expect {
-          described_class.call(book_id: 999_999, notes_params: params)
-        }.to raise_error(ActiveRecord::RecordNotFound)
-
-        expect(Note.where(book_id: book.id).count).to eq 0
-      end
-    end
-
 
     context "バリデーション失敗: 複数行が invalid のとき" do
       let(:params) do
@@ -99,7 +73,7 @@ RSpec.describe Notes::BulkCreate do
 
       it "BulkInvalid を投げ、errors が複数要素で返る & 1件も作成されない" do
         expect {
-          described_class.call(book_id: book.id, notes_params: params)
+          described_class.call(book: book, notes_params: params)
         }.to raise_error(Notes::BulkCreate::BulkInvalid) { |e|
           expect(e.errors.size).to eq 2
 
@@ -118,7 +92,7 @@ RSpec.describe Notes::BulkCreate do
     context "前提違反: notes が空配列のとき" do
       it "BadRequest を投げ、1件も作成されない" do
         expect {
-          described_class.call(book_id: book.id, notes_params: [])
+          described_class.call(book: book, notes_params: [])
         }.to raise_error(ApplicationErrors::BadRequest, /must be a non-empty array/)
     
         expect(Note.where(book_id: book.id).count).to eq 0
@@ -134,7 +108,7 @@ RSpec.describe Notes::BulkCreate do
     
       it "BadRequest を投げ、1件も作成されない" do
         expect {
-          described_class.call(book_id: book.id, notes_params: over_params)
+          described_class.call(book: book, notes_params: over_params)
         }.to raise_error(ApplicationErrors::BadRequest, /too many notes/)
     
         expect(Note.where(book_id: book.id).count).to eq 0
@@ -175,7 +149,7 @@ RSpec.describe Notes::BulkCreate do
       it "save! 失敗時に transaction が rollback し、DB に 1件も作成されない" do
         expect {
           begin
-            described_class.call(book_id: book.id, notes_params: params)
+            described_class.call(book: book, notes_params: params)
           rescue ActiveRecord::RecordInvalid
             # save! の例外は想定内（無視）
           end
