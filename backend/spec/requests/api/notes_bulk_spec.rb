@@ -90,6 +90,32 @@ RSpec.describe "POST /api/books/:book_id/notes/bulk", type: :request do
       expect(first_error).to have_key(:messages)
       expect(first_error[:messages]).to be_an(Array)
     end
+
+    it "他人のbookではbulk作成できない" do
+      other_user = User.create!(
+        email: "other-#{SecureRandom.hex(4)}@example.com",
+        password: "password"
+      )
+      other_book = Book.create!(
+        user: other_user,
+        title: "Other Book",
+        author: "Other Author"
+      )
+
+      payload = {
+          notes: [
+            { page: 1, quote: "Q1", memo: "M1" },
+            { page: 2, quote: "Q2", memo: "M2" },
+            { page: 3, quote: "Q3", memo: "M3" }
+          ]
+        }
+
+      expect {
+        post "/api/books/#{other_book.id}/notes/bulk", params: payload, as: :json
+      }.not_to change { Note.count }
+        
+      expect(response).to have_http_status(:not_found)
+    end
   end
 
   describe "BadRequest → 400 を返す" do
