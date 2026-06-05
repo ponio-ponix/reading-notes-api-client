@@ -3,7 +3,7 @@ Rails.application.routes.draw do
    get "/healthz", to: "health#show"
 
   namespace :api do
-    resources :books, only: [:index, :create] do
+    resources :books, only: [:index, :create, :destroy] do
       resources :notes, only: [:create, :destroy]
       resources :notes_search, only: [:index], path: "notes_search"
 

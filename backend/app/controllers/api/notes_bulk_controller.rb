@@ -1,12 +1,14 @@
 class Api::NotesBulkController < ApplicationController
+  before_action :authenticate_user!, only: [:create]
+  before_action :set_book, only: [:create]
 
 
-  # Book の存在確認は Notes::BulkCreate 側で行う（Controller で二重にDBを叩かない）
   def create
     notes = Notes::BulkCreate.call(
-      book_id: params[:book_id],
+      book: @book,
       notes_params: notes_params
     )
+
 
     render json: {
       notes: notes.as_json(only: [:id, :page, :quote, :memo, :created_at]),
@@ -24,6 +26,10 @@ class Api::NotesBulkController < ApplicationController
   # ApplicationController 側の rescue に任せる。
   #
   # バリデーションや一括作成のルールは Service に寄せる。
+  
+  def set_book
+    @book = current_user.books.alive.find(params[:book_id])
+  end
 
   def notes_params
     raw = params[:notes]

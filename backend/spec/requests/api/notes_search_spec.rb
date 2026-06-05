@@ -67,6 +67,22 @@ RSpec.describe "Notes Search API", type: :request do
       
         expect(response).to have_http_status(:not_found)
       end
+
+      it "他人のbookではsearchできない" do
+        other_user = User.create!(
+        email: "other-#{SecureRandom.hex(4)}@example.com",
+        password: "password"
+        )
+        other_book = Book.create!(
+          user: other_user,
+          title: "Other Book",
+          author: "Other Author"
+        )
+
+        get "/api/books/#{other_book.id}/notes_search", params: { q: "ruby", page: 1, limit: 10 }
+
+        expect(response).to have_http_status(:not_found) 
+      end
     end
 
     context "400系（BadRequest）" do

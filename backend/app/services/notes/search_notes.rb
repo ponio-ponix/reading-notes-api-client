@@ -6,25 +6,19 @@ module Notes
 
     # ==== 公開インターフェース ====
     # Controller からはここだけ呼ぶ
-    def self.call(book_id:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
+    def self.call(book:, query: nil, page_from: nil, page_to: nil, page: nil, limit: nil)
       params = normalize_params(
-        book_id: book_id,
         query: query,
         page_from: page_from,
         page_to: page_to,
         page: page,
         limit: limit
       )
-      book = Book.alive.find(params[:book_id])
-      # ① 入力を Service 内部用に正規化
 
-      # ② 検索条件を組み立てる
       rel = build_scope(book, params)
 
-      # ③ 件数カウント
       total_count = rel.count
 
-      # ④ ページネーション適用
       records, meta = paginate(rel, params[:page], params[:limit], total_count)
 
       [records, meta]
@@ -34,8 +28,7 @@ module Notes
 
     # Controller 由来の値（文字列・nil・変な値）を
     # Service 内部で扱いやすい形にそろえる
-    def self.normalize_params(book_id:, query:, page_from:, page_to:, page:, limit:)
-      raise ApplicationErrors::BadRequest, "book_id must be a numeric string" unless book_id.to_s =~ /\A\d+\z/
+    def self.normalize_params(query:, page_from:, page_to:, page:, limit:)
 
       if page.present? && page.to_s !~ /\A\d+\z/
         raise ApplicationErrors::BadRequest, "page must be an integer or nil"
@@ -65,7 +58,6 @@ module Notes
     
 
       {
-        book_id: book_id.to_i,
         query:     query&.to_s&.strip&.presence,
         page_from: page_from_i,
         page_to:   page_to_i,

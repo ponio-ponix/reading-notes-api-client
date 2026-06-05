@@ -35,11 +35,11 @@ RSpec.describe Notes::SearchNotes, type: :service do
       Note.create!(book: book, page: 2, quote: "c", memo: nil)
     
       notes_blank, meta_blank = described_class.call(
-        book_id: book.id, query: "   ", page_from: nil, page_to: nil, page: 1, limit: 50
+        book: book, query: "   ", page_from: nil, page_to: nil, page: 1, limit: 50
       )
     
       notes_nil, meta_nil = described_class.call(
-        book_id: book.id, query: nil, page_from: nil, page_to: nil, page: 1, limit: 50
+        book: book, query: nil, page_from: nil, page_to: nil, page: 1, limit: 50
       )
     
       expect(notes_blank).to match_array(notes_nil)
@@ -48,7 +48,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
     it '何もフィルタしないとき、全件・meta が正しい' do
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     nil,
         page_from: nil,
         page_to:   nil,
@@ -67,7 +67,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
     it 'query を指定するとその文字列を含むノートだけ返す' do
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     "foo",
         page_from: nil,
         page_to:   nil,
@@ -91,7 +91,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
       end
 
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     nil,
         page_from: nil,
         page_to:   nil,
@@ -106,26 +106,13 @@ RSpec.describe Notes::SearchNotes, type: :service do
       expect(notes.size).to         eq 5
     end
 
-    it '存在しない book_id の場合は ActiveRecord::RecordNotFound を投げる' do
-      expect {
-        described_class.call(
-          book_id:   999_999,
-          query:     nil,
-          page_from: nil,
-          page_to:   nil,
-          page:      1,
-          limit:     10
-        )
-      }.to raise_error(ActiveRecord::RecordNotFound)
-    end
-
     it 'page_from / page_to でページ範囲を絞り込む' do
       note_low = Note.create!(book: book, page: 5,  quote: "low",  memo: "m")
       note_mid = Note.create!(book: book, page: 15, quote: "mid",  memo: "m")
       note_hi  = Note.create!(book: book, page: 25, quote: "high", memo: "m")
 
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     nil,
         page_from: 10,
         page_to:   20,
@@ -142,7 +129,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
     it 'page_from が page_to より大きい場合は BadRequest を投げる' do
       expect {
         described_class.call(
-          book_id:   book.id,
+          book:   book,
           query:     nil,
           page_from: 20,
           page_to:   10,
@@ -155,7 +142,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
     it 'page が整数文字列でない場合は BadRequest を投げる' do
       expect {
         described_class.call(
-          book_id:   book.id,
+          book:   book,
           query:     nil,
           page_from: nil,
           page_to:   nil,
@@ -168,7 +155,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
     it 'page_from / page_to が整数文字列でない場合は BadRequest を投げる' do
       expect {
         described_class.call(
-          book_id:   book.id,
+          book:   book,
           query:     nil,
           page_from: "foo",
           page_to:   "20",
@@ -180,7 +167,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
     it 'page <= 0 の場合は 1 に正規化される' do
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     nil,
         page_from: nil,
         page_to:   nil,
@@ -193,7 +180,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
     it 'limit が nil のときは DEFAULT_LIMIT になる' do
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     nil,
         page_from: nil,
         page_to:   nil,
@@ -220,7 +207,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
       )
 
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     "foo",
         page_from: nil,
         page_to:   nil,
@@ -245,7 +232,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
       end
 
       notes, meta = described_class.call(
-        book_id:   book.id,
+        book:   book,
         query:     nil,
         page_from: nil,
         page_to:   nil,
@@ -254,21 +241,6 @@ RSpec.describe Notes::SearchNotes, type: :service do
       )
 
       expect(meta[:limit]).to eq Notes::SearchNotes::MAX_LIMIT
-    end
-
-    it 'soft-deleted book の場合は ActiveRecord::RecordNotFound を投げる' do
-      book.update!(deleted_at: Time.current)
-    
-      expect {
-        described_class.call(
-          book_id:   book.id,
-          query:     nil,
-          page_from: nil,
-          page_to:   nil,
-          page:      1,
-          limit:     10
-        )
-      }.to raise_error(ActiveRecord::RecordNotFound)
     end
 
     describe '空白区切り AND 検索' do
@@ -293,7 +265,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
         )
 
         notes, meta = described_class.call(
-          book_id:   book.id,
+          book:  book,
           query:     "ラーメン おすすめ",
           page_from: nil,
           page_to:   nil,
@@ -307,7 +279,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
 
       it 'q="   "（空白のみ）は未指定扱いで全件返す' do
         notes, meta = described_class.call(
-          book_id:   book.id,
+          book:   book,
           query:     "   ",
           page_from: nil,
           page_to:   nil,
@@ -327,7 +299,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
         )
 
         notes, meta = described_class.call(
-          book_id:   book.id,
+          book:   book,
           query:     "ラーメン  おすすめ",  # 連続空白
           page_from: nil,
           page_to:   nil,
@@ -347,7 +319,7 @@ RSpec.describe Notes::SearchNotes, type: :service do
         )
 
         notes, meta = described_class.call(
-          book_id:   book.id,
+          book:   book,
           query:     "ラーメン おすすめ",
           page_from: nil,
           page_to:   nil,

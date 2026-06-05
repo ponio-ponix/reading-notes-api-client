@@ -1,10 +1,11 @@
 module Api
   class NotesSearchController < ApplicationController
-
+    before_action :authenticate_user!, only: [:index]
+    before_action :set_book, only: [:index]
 
     def index
       notes, meta = Notes::SearchNotes.call(
-        book_id:   params[:book_id],
+        book: @book,
         query:     params[:q],
         page_from: params[:page_from],
         page_to:   params[:page_to],
@@ -18,6 +19,10 @@ module Api
         ),
         meta:  meta
       }
+    end
+
+    def set_book
+      @book = current_user.books.alive.find(params[:book_id])
     end
 
 
