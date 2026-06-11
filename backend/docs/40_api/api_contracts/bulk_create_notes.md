@@ -1,214 +1,337 @@
 # Bulk Create Notes API Contract
 
-###　ノート一括作成（Bulk Create）
+## 0. Purpose
 
-##　0. Purpose（この API の存在理由）
+`POST /api/books/:book_id/notes/bulk` は、1つのBookに対して複数のNoteを一括作成するためのAPIである。
 
-読書中の「連続メモ入力」を効率化するため、複数の Note を
-1リクエストで原子的（atomic）に保存することを目的とする。
+読書中の連続メモ入力では、複数の引用メモをまとめて保存したいケースがある。  
+このAPIでは、1リクエストを1つの論理的な書き込み単位として扱い、全件成功または全件失敗のどちらかに統一する。
 
-ユーザー体験（UX）上も、
-一部だけ保存される中途半端な状態は許容できない。
-
----
-
-## 1. Flow（連続メモ入力の流れ）
-
-- ユーザーは「連続メモモード」を開く
-- 縦に並んだ入力行（page / quote / memo）に次々入力していく
-- 入力済みの行は一旦フロント側の下書きリストに保持される
-- 最後に「◯件まとめて保存」ボタンを押す
-- フロントは下書きリストを `notes` 配列として 1リクエストで送信する
-- サーバ側では全件が valid のときだけ保存し、
-  1件でも invalid な場合は全件ロールバックし、エラー情報を返す
-
----
-## 2. Constraints（制約）
-
-- 1リクエストあたりの `notes` の最大件数: 20件
-- `notes` は必須の配列（空配列はエラー）
-
+部分的に保存される中途半端な状態は許容しない。
 
 ---
 
-## 3. Validation Rules（入力のルール）
+## 1. Endpoint
 
-- `page`:
-  - null 許容
-  - null でない場合は 1 以上の整数
-- `quote`:
-  - 必須
-  - 空文字・空白のみは NG
-  - 最大 1000 文字
-- `memo`:
-  - 任意（null OK）
-  - 最大 2000 文字
-- `notes` 自体が配列でない or 空配列なら 400 Bad Request
-
+```http
+POST /api/books/:book_id/notes/bulk
+```
 
 ---
 
-## 4. Endpoint
-**POST /api/books/:book_id/notes/bulk**
+## 2. Authentication
 
+このAPIは Bearer Token 認証を必要とする。
+
+```http
+Authorization: Bearer <token>
+```
+
+未認証、無効Token、期限切れToken、revoked Token の場合は `401 Unauthorized` を返す。
+
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Authentication required"
+  }
+}
+```
 
 ---
 
-## 5. Request / Response
+## 3. Ownership Boundary
 
-## Request Body
+このAPIでは、Controller側で以下の条件を満たすBookのみを対象にする。
+
+- ログイン中ユーザーが所有していること
+- `deleted_at` が `nil` であること
+
+実装上は、Book取得を以下の境界で行う。
+
+```ruby
+current_user.books.alive.find(params[:book_id])
+```
+
+そのため、以下の場合はすべて `404 Not Found` として扱う。
+
+- Bookが存在しない
+- Bookが削除済み
+- Bookが他ユーザー所有
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "Resource not found"
+  }
+}
+```
+
+これは、リソースの存在有無や所有関係を外部に露出しないためである。
+
+---
+
+## 4. Request
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `book_id` | integer | Yes | 対象BookのID |
+
+### Request Body
+
 ```json
 {
   "notes": [
-    { "page": 12, "quote": "....", "memo": "..." },
-    { "page": 13, "quote": "....", "memo": null }
-  ]
-}
-
-```
-
-## Success (201):
-
-```json
-{
-  "notes": [
-    { "id": 101, "page": 12, "quote": "...", "memo": "...", "created_at": "..." },
-    { "id": 102, "page": 13, "quote": "...", "memo": null, "created_at": "..." }
-  ],
-  "meta": { "created_count": 2 }
-}
-```
-
-#### エラー
-- notes が空 / 配列でない … 400 Bad Request
-  - 例: {"errors": ["notes must be a non-empty array"]}
-- 要素数が上限を超える … 400 Bad Request
-  - 例: {"errors": ["too many notes (max 20)"]}
-- 要素の一部でバリデーションエラー … 422 Unprocessable Entity
-  - 形式は共通仕様「1.1 Bulk API 固有のエラー形式」を参照
-- 本が存在しない場合 … 404 Not Found
-
-## Failure (422, 1件でも NG):
-
-```json
-{
-  "errors": [
-    { "index": 0, "messages": ["page must be greater than 0"] },
-    { "index": 2, "messages": ["quote can't be blank"] }
-  ]
-}
-```
-
-
-## 6. エラー仕様
-
-このセクションでは、Bulk Create API 固有のエラー仕様のみを定義する。  
-共通エラー仕様（400 / 404 / 422 / 500 の一般的な意味・レスポンス形式）は  
-**api_overview.md** を参照とし、本ファイルでは **差分のみ** を記述する。
-
----
-
-## 6.1. Bulk Create のステータスコード運用
-
-### 400 Bad Request（Bulk Create 固有ルール）
-
-以下の Bulk Create 固有条件のとき 400 を返す：
-
-- `notes` が **配列でない**
-- `notes` が **空配列**
-- `notes.size` が **上限（20件）を超える**
-
-レスポンス例：
-
-```json
-{
-  "errors": ["notes must be a non-empty array"]
-}
-```
-
-### 404 Not Found（Bulk Create 固有ルール）
-対象の Book が存在しない場合、404 を返す。
-
-```json
-{
-  "errors": ["book not found"]
-}
-```
-
-## 6.2. Bulk Create 固有の 422 エラー形式
-Bulk Create では、どの入力行が invalid だったかを返す必要があるため
-共通レスポンス { "errors": [...] } を拡張した専用形式を使用する。
-
-```json
-{
-  "errors": [
     {
-      "index": 0,
-      "messages": ["page must be greater than 0"]
+      "page": 12,
+      "quote": "引用文1",
+      "memo": "メモ1"
     },
     {
-      "index": 2,
-      "messages": ["quote can't be blank"]
+      "page": 13,
+      "quote": "引用文2",
+      "memo": null
     }
   ]
 }
-
 ```
-- index: notes 配列内の番号
-- messages: その Note に対する複数のバリデーションエラー
 
-この 422 が返るとき、
-トランザクションは 1 件も保存せず全ロールバックされる。
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `notes` | array | Yes | Noteオブジェクトの配列 |
+| `notes[].page` | integer | Yes | ページ番号。1以上 |
+| `notes[].quote` | string | Yes | 引用文。最大1000文字 |
+| `notes[].memo` | string / null | No | メモ。最大2000文字 |
 
-## 6.3. トランザクション境界とエラーの関係（Bulk 固有）
--	1件でも invalid → 全件ロールバック
--	成功時は 201（Created）
--	部分成功は仕様上禁止（atomicity）
+---
 
+## 5. Validation Rules
 
+### `notes`
 
-## 7. DB 制約（この API が前提とするもの）
+- 必須
+- 配列であること
+- 各要素はNoteオブジェクトであること
 
-- `notes.book_id` は `books.id` への外部キーとする
-  - 誤削除を避けるため、`ON DELETE RESTRICT` を採用
-- `quote` / `memo` の長さ制約は DB 側カラム定義と揃える
-  - `quote`：最大 1000 文字
-  - `memo`：最大 2000 文字
+`notes` が存在しない、配列でない、または要素がオブジェクトでない場合は `400 Bad Request` を返す。
 
-※ `(book_id, page, quote)` に対するユニーク制約は **MVP では貼らない**
-  - 同じページ・同じ引用を重複して残したいケースも考えられるため
-  - 重複禁止の要件が出た場合に、(book_id, page, quote) に unique index を追加する
+```json
+{
+  "error": {
+    "code": "bad_request",
+    "message": "Bad request"
+  }
+}
+```
 
+### `notes[].page`
 
-## 8 同時実行時のふるまい（簡易メモ）
+- 必須
+- integer
+- 1以上
 
-- 同時 Bulk Create の整合性は “atomic(全成功/全失敗)” は transaction が担保
-- 競合時はDBのロック/分離レベルに依存。必要なら明示ロック
+### `notes[].quote`
 
-## 8.1 (将来)同時実行時のふるまい（簡易メモ）
+- 必須
+- 空文字は不可
+- 最大1000文字
 
-- 同一 book に対する同時 Bulk Create は、
-  Book 行に対する明示ロック（例: SELECT ... FOR UPDATE）を取得することで
-  アプリケーションレベルで順序実行を保証する
-- Book 削除と Bulk Create が競合した場合、
-  外部キー制約（ON DELETE RESTRICT）により Bulk Create が失敗する
+### `notes[].memo`
 
-詳細は transaction_policy.md を参照。
+- 任意
+- `null` 可
+- 最大2000文字
 
+---
 
-## 9. Transaction Boundary（この API が守る境界）
+## 6. Success Response
 
-- 本エンドポイントは 1 HTTP Request を
-  1つの論理的な書き込み単位（atomic operation） として扱う。
+全件validな場合、すべてのNoteを作成し、`201 Created` を返す。
 
-不変条件（Invariant）：：
+**201 Created**
 
-- notes は「全部成功」または「全部失敗」のどちらか
-- 部分的に保存される状態は発生しない
+```json
+{
+  "notes": [
+    {
+      "id": 101,
+      "page": 12,
+      "quote": "引用文1",
+      "memo": "メモ1",
+      "created_at": "2026-06-11T04:00:14.239Z"
+    },
+    {
+      "id": 102,
+      "page": 13,
+      "quote": "引用文2",
+      "memo": null,
+      "created_at": "2026-06-11T04:00:14.670Z"
+    }
+  ],
+  "meta": {
+    "created_count": 2
+  }
+}
+```
 
-> **Transaction 観点メモ**
-> - このエンドポイント単位で **1トランザクション** を張る  
-> - 読み取り系（GET /notes など）とは違い、「書き込み系の境界」として扱う
+### Response Fields
 
-詳細なトランザクション方針（例：失敗時の扱い・整合性維持の仕組み）は
-transaction_policy.md を参照。
+| Field | Type | Description |
+|-------|------|-------------|
+| `notes` | array | 作成されたNote一覧 |
+| `notes[].id` | integer | Note ID |
+| `notes[].page` | integer | ページ番号 |
+| `notes[].quote` | string | 引用文 |
+| `notes[].memo` | string / null | メモ |
+| `notes[].created_at` | string | 作成日時 |
+| `meta.created_count` | integer | 作成件数 |
+
+---
+
+## 7. Error Responses
+
+### 400 Bad Request
+
+リクエスト構造が不正な場合。
+
+例：
+
+- `notes` が存在しない
+- `notes` が配列でない
+- `notes` の要素がオブジェクトでない
+
+```json
+{
+  "error": {
+    "code": "bad_request",
+    "message": "Bad request"
+  }
+}
+```
+
+---
+
+### 401 Unauthorized
+
+認証に失敗した場合。
+
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Authentication required"
+  }
+}
+```
+
+---
+
+### 404 Not Found
+
+対象Bookが存在しない、削除済み、またはログイン中ユーザーの所有Bookではない場合。
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "Resource not found"
+  }
+}
+```
+
+---
+
+### 422 Unprocessable Entity
+
+1件以上のNoteがvalidationに失敗した場合。  
+この場合、DBには1件も作成されない。
+
+```json
+{
+  "error": {
+    "code": "unprocessable_entity",
+    "message": "Validation failed",
+    "details": [
+      {
+        "index": 1,
+        "messages": [
+          "Quote can't be blank",
+          "Page must be greater than or equal to 1"
+        ]
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `details[].index` | integer | エラーが発生した `notes` 配列のインデックス。0始まり |
+| `details[].messages` | string[] | そのNoteに対するvalidation error |
+
+---
+
+## 8. Transaction Boundary
+
+このAPIは、1 HTTP requestを1つの論理的な書き込み単位として扱う。
+
+### Invariant
+
+- 全件validな場合のみ保存する
+- 1件でもinvalidな場合は全件保存しない
+- 部分成功は禁止
+- 422が返る場合、DBには1件も作成されない
+
+```text
+valid notes only
+→ 201 Created
+→ all notes are saved
+
+one or more invalid notes
+→ 422 Unprocessable Entity
+→ no notes are saved
+```
+
+---
+
+## 9. DB Constraints
+
+このAPIは、Rails側validationに加えてDB制約によって整合性を担保する。
+
+| Table | Column | Constraint |
+|-------|--------|------------|
+| `notes` | `book_id` | NOT NULL / FK |
+| `notes` | `page` | NOT NULL / CHECK `page >= 1` |
+| `notes` | `quote` | NOT NULL / CHECK `char_length(quote) <= 1000` |
+| `notes` | `memo` | CHECK `memo IS NULL OR char_length(memo) <= 2000` |
+
+`notes.book_id → books.id` は `ON DELETE RESTRICT` とし、物理削除時の参照整合性をDBレベルで守る。
+
+なお、MVPでは `(book_id, page, quote)` に対するunique制約は設定しない。  
+同じページ・同じ引用を重複して残したいケースも考えられるためである。
+
+---
+
+## 10. 本番確認済み挙動
+
+本番環境で以下を確認済み。
+
+- 正常系
+  - `POST /api/books/:book_id/notes/bulk`
+  - `201 Created`
+  - `meta.created_count: 3`
+
+- 一部invalid
+  - `422 Unprocessable Entity`
+  - `details` に `index` と `messages` を返す
+  - 同一indexに複数のエラーメッセージが入る
+  - DBには1件も作成されない
+
+- 他ユーザーBookへのBulk Create
+  - `404 Not Found`
+  - 所有権情報を露出しない
+
+---

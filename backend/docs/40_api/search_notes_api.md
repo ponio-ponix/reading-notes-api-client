@@ -1,236 +1,103 @@
-# ノート一覧取得（検索＋ページネーション対応）
-
-本ドキュメントは、**構造化引用検索** の中核となるエンドポイント  
-`GET /api/books/:book_id/notes_search` の仕様だけを切り出して定義する。
-
-- Base URL（開発）: `http://localhost:3000`
-- Resource: Book に紐づく Note
-- 認証: なし（ローカル開発用）
-
+# Search Notes API Contract
+## 0. Purpose
+`GET /api/books/:book_id/notes_search` は、指定したBookに紐づくNoteを検索・フィルタリング・ページネーションして取得するAPIである。
+構造化された読書メモ検索の中核として、以下の条件でNoteを取得できるようにする。
+- キーワード検索
+- ページ範囲検索
+- ページネーション
 ---
-
-## 1. Endpoint 概要
-
-### 1.1 エンドポイント
-
-**GET /api/books/:book_id/notes_search**
-
-### 1.2 用途
-
-- 指定した Book に紐づくノート一覧を返す
-- 以下の条件で検索・絞り込み・ページングを行う
-  - キーワード検索（`q`）
-  - ページ範囲指定（`page_from` / `page_to`）
-  - ページング（`page` / `limit`）
-
-このエンドポイントが「構造化引用検索」機能の土台に
-
----
-
-## 2. パラメータ仕様
-
-### 2.1 パスパラメータ
-
-| name      | type    | 必須 | 説明                    |
-|-----------|---------|------|-------------------------|
-| `book_id` | integer | YES  | 対象となる Book の ID   |
-
----
-
-### 2.2 クエリパラメータ
-
-| name        | type    | 必須 | デフォルト | 説明                                                                 |
-|-------------|---------|------|------------|----------------------------------------------------------------------|
-| `q`         | string  | 任意 | `nil`      | `quote` / `memo` に対する部分一致キーワード                         |
-| `page_from` | integer | 任意 | `nil`      | ページ下限（例: `10` → `page >= 10`）                                |
-| `page_to`   | integer | 任意 | `nil`      | ページ上限（例: `20` → `page <= 20`）                                |
-| `page`      | integer | 任意 | `1`        | 何ページ目か（1 始まり、`page >= 1`）                                |
-| `limit`     | integer | 任意 | `50`       | 1ページあたり件数（上限 `200`。超えたら `200` にクランプ）         |
-
----
-
-## 3. パラメータのバリデーションルール
-
-このエンドポイントでは、**入力がおかしい場合は 400 Bad Request を返す**。
-
-### 3.1 `page`
-
-- 未指定 or 空文字 → `1` とみなす
-- 数値に変換できない → **400 Bad Request**
-- `page < 1` → `1` に正規化（エラーにしない）
-
-### 3.2 `limit`
-
-- 未指定 or 空文字 → `50` とみなす
-- 数値に変換できない → **400 Bad Request**
-- `limit < 1` → `50` に正規化（エラーにしない）
-- `limit > 200` → `200` にクランプ（エラーにしない）
-
-### 3.3 `page_from` / `page_to`
-
-- 未指定 → 無視
-- いずれかが数値に変換できない → **400 Bad Request**
-- 両方指定されていて `page_from > page_to` → **400 Bad Request**
-
-> 400 のレスポンス形式は `api_overview.md` の共通エラー仕様に従う。
-
----
-
-## 4. 検索条件の適用順序（Contract）
-
-本エンドポイントにおける検索条件は、  
-以下の順序で **AND 結合** により適用される。
-
-### 4.1 必須条件
-
-- `book_id = :book_id`
-
-Rails 的には：
-
-```rb
-scope = Note.where(book_id: book.id)
+## 1. Endpoint
+```http
+GET /api/books/:book_id/notes_search
 ```
-
-
-## 4.2 キーワード検索（任意）
-
-`q` パラメータが指定された場合、`quote` / `memo` に対してキーワード検索を適用する。
-
-### 4.2.1 クエリ文字列の正規化ルール
-
-`q` パラメータは以下の正規化を行う。
-
-1. **前後の空白を削除（trim処理）**
-   - 例: `"  愛  "` → `"愛"`
-   - 例: `"ラーメン  おすすめ"` → `"ラーメン  おすすめ"` （内部の空白は保持）
-
-2. **trim後に空文字になる場合の扱い**
-   - `q=""` または `q="   "` （空白のみ）の場合、trim後に空文字となる
-   - この場合、**`q` 未指定扱いとする**（キーワード検索フィルタを適用しない）
-   - つまり、一覧取得の挙動になる
-   - ※ 400 Bad Request は返さない（未指定扱いで統一）
-
-### 4.2.2 空白区切り AND 検索
-
-trim後の `q` に空白が含まれる場合、空白区切りでトークン化し、**AND検索**を行う。
-
-**トークン化のルール**:
-- 連続する空白は1つの区切りとして扱う
-- 例: `"ラーメン  おすすめ"` → `["ラーメン", "おすすめ"]` （2トークン）
-- 例: `"愛"` → `["愛"]` （1トークン）
-
-**検索条件の構築**:
-- 各トークンは `quote` / `memo` に対して部分一致検索（ILIKE相当、大文字小文字無視）
-- トークン同士は **AND結合**
-  - つまり、**全トークンがヒットする note のみ返す**
-
-**SQL イメージ（擬似コード）**:
-```sql
--- q="ラーメン おすすめ" の場合
-WHERE book_id = :book_id
-  AND (
-    (quote ILIKE '%ラーメン%' OR memo ILIKE '%ラーメン%')
-    AND
-    (quote ILIKE '%おすすめ%' OR memo ILIKE '%おすすめ%')
-  )
-```
-
-**具体例**:
-
-| `q` の値 | トークン化 | 検索条件 |
-|---------|-----------|---------|
-| `"愛"` | `["愛"]` | `(quote ILIKE '%愛%' OR memo ILIKE '%愛%')` |
-| `"ラーメン おすすめ"` | `["ラーメン", "おすすめ"]` | `(quote ILIKE '%ラーメン%' OR memo ILIKE '%ラーメン%') AND (quote ILIKE '%おすすめ%' OR memo ILIKE '%おすすめ%')` |
-| `"  愛  "` | `["愛"]` | `(quote ILIKE '%愛%' OR memo ILIKE '%愛%')` （trim後） |
-| `""` or `"   "` | （未指定扱い） | キーワード検索なし（一覧取得） |
-
-**注意**:
-- 1トークンの場合、従来の単純検索と同じ挙動になる
-- トークン内に空白は存在しない（split済み）
-- 大文字・小文字は区別しない（ILIKE相当）
-
-### 4.2.3 memo が NULL の場合の検索挙動
-
-`memo` が NULL の Note は、**memo 条件では一致しない**（quote 側の一致のみが評価対象）。
-
-**例**: q="愛" のとき
-- quote="愛について", memo=NULL → ヒット（quote一致）
-- quote="人生", memo=NULL → ヒットしない（quote不一致）
-
-※ memo ILIKE ... は memo=NULL の場合 true/false ではなく UNKNOWN になるため。
-
 ---
-
-## 4.3 ページ範囲フィルタ（任意）
-
-ページ番号を用いた範囲指定。  
-指定されている項目のみ適用する。
-
-- `page_from` のみ指定 → `page >= page_from`
-- `page_to` のみ指定 → `page <= page_to`
-- `page_from` と `page_to` の両方指定 → `page BETWEEN page_from AND page_to`
-
-※ `page_from` と `page_to` の両方が指定され、`page_from > page_to` の場合は  
-**400 Bad Request** とする（パラメータエラー）。
-
----
-
-## 4.4 ソート順序（Contract）
-
-検索結果の順序は常に **`created_at DESC`（新しい順）** とする。
-
-```rb
-scope = scope.order(created_at: :desc)
-
+## 2. Authentication
+このAPIは Bearer Token 認証を必要とする。
+```http
+Authorization: Bearer <token>
 ```
-
-
----
-
-## 4.5 ページング（page / limit）
-
-
-ページング処理は以下の契約に従う。
-
-page
-
-- 未指定 → 1
-- 数値でない → 400
-- page < 1 → 1 に正規化
-
-limit
-
-- 未指定 → 50
-- 数値でない → 400
-- limit < 1 → 50 に正規化
-- limit > 200 → 200 にクランプ
-
-### 4.5.2 offset の計算式
-
-```rb
-offset = (page - 1) * limit
+未認証、無効Token、期限切れToken、revoked Token の場合は `401 Unauthorized` を返す。
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Authentication required"
+  }
+}
 ```
-
-### 4.5.3 total_count の定義
-
-total_count は「検索条件をすべて適用した後の総件数」。
-
-```rb
-book_id=1 のノート 200 件
-キーワード q="愛" を適用 → 37 件
-ページ範囲 page_from=10 を適用 → 12 件
-limit=5 のとき
-  total_count = 12
-  total_pages = ceil(12 / 5) = 3
-
-```
-
-## 5. レスポンス仕様
-
 ---
-
-## 5.1 成功時（200 OK）
-
+## 3. Ownership Boundary
+このAPIでは、Controller側で以下の条件を満たすBookのみを対象にする。
+- ログイン中ユーザーが所有していること
+- `deleted_at` が `nil` であること
+実装上は、Book取得を以下の境界で行う。
+```ruby
+current_user.books.alive.find(params[:book_id])
+```
+そのため、以下の場合はすべて `404 Not Found` として扱う。
+- Bookが存在しない
+- Bookが削除済み
+- Bookが他ユーザー所有
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "Resource not found"
+  }
+}
+```
+これは、リソースの存在有無や所有関係を外部に露出しないためである。
+---
+## 4. Request
+### Path Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `book_id` | integer | Yes | 対象BookのID |
+### Query Parameters
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `q` | string | No | — | `quote` または `memo` に対する部分一致キーワード |
+| `page_from` | integer | No | — | ページ番号の下限 |
+| `page_to` | integer | No | — | ページ番号の上限 |
+| `page` | integer | No | `1` | ページネーションのページ番号 |
+| `limit` | integer | No | `50` | 1ページあたりの件数。最大 `200` |
+---
+## 5. Query Parameter Rules
+### 5.1 `q`
+`q` が指定された場合、`quote` / `memo` に対して部分一致検索を行う。
+- `quote` または `memo` に一致するNoteを返す
+- 大文字・小文字を区別しない検索を想定する
+- スペース区切りの場合、AND検索として扱う
+- `q` が未指定または空文字相当の場合は、キーワード検索を適用しない
+例：
+| `q` | Meaning |
+|-----|---------|
+| `Rails` | `quote` または `memo` に `Rails` を含むNote |
+| `Clean Architecture` | `Clean` と `Architecture` の両方に一致するNote |
+| 空文字 | キーワード検索なし |
+---
+### 5.2 `page_from` / `page_to`
+ページ番号による範囲検索を行う。
+- `page_from` のみ指定された場合: `page >= page_from`
+- `page_to` のみ指定された場合: `page <= page_to`
+- 両方指定された場合: `page_from <= page <= page_to`
+`page_from` / `page_to` が数値として扱えない場合、または不正な範囲指定の場合は `400 Bad Request` を返す。
+---
+### 5.3 `page` / `limit`
+ページネーションに使用する。
+- `page` 未指定時は `1`
+- `limit` 未指定時は `50`
+- `limit` の最大値は `200`
+- 数値として扱えない値が指定された場合は `400 Bad Request` を返す
+---
+## 6. Sort Order
+検索結果は `created_at DESC` で返す。
+```ruby
+order(created_at: :desc)
+```
+---
+## 7. Success Response
+### 200 OK
 ```json
 {
   "notes": [
@@ -240,7 +107,7 @@ limit=5 のとき
       "page": 10,
       "quote": "人間は耐えることができるのだ。",
       "memo": "テスト用",
-      "created_at": "2025-12-05T02:52:03.377Z"
+      "created_at": "2026-06-11T04:00:14.670Z"
     }
   ],
   "meta": {
@@ -251,14 +118,92 @@ limit=5 のとき
   }
 }
 ```
-
-### 5.1.1 `meta` オブジェクト仕様
-
-検索結果に付随する `meta` の構造は以下のとおり。
-
-| key          | 型  | 説明 |
-|--------------|-----|------|
-| `total_count` | int | 条件にマッチしたノートの総件数 |
-| `page`        | int | 現在のページ番号 |
-| `limit`       | int | 1ページあたりの最大件数 |
-| `total_pages` | int | `ceil(total_count / limit)` の結果 |
+### Response Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `notes` | array | Noteオブジェクトの配列 |
+| `notes[].id` | integer | Note ID |
+| `notes[].book_id` | integer | Book ID |
+| `notes[].page` | integer | ページ番号 |
+| `notes[].quote` | string | 引用文 |
+| `notes[].memo` | string / null | メモ |
+| `notes[].created_at` | string | 作成日時 |
+| `meta.total_count` | integer | 条件に一致した総件数 |
+| `meta.page` | integer | 現在のページ番号 |
+| `meta.limit` | integer | 1ページあたりの件数 |
+| `meta.total_pages` | integer | 総ページ数 |
+---
+## 8. Empty Result
+検索条件に一致するNoteが存在しない場合も、`200 OK` を返す。
+```json
+{
+  "notes": [],
+  "meta": {
+    "total_count": 0,
+    "page": 1,
+    "limit": 10,
+    "total_pages": 0
+  }
+}
+```
+---
+## 9. Error Responses
+### 400 Bad Request
+クエリパラメータが不正な場合。
+例：
+- `page` が数値として扱えない
+- `limit` が数値として扱えない
+- `page_from` / `page_to` が数値として扱えない
+- `page_from > page_to`
+```json
+{
+  "error": {
+    "code": "bad_request",
+    "message": "Bad request"
+  }
+}
+```
+---
+### 401 Unauthorized
+認証に失敗した場合。
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Authentication required"
+  }
+}
+```
+---
+### 404 Not Found
+対象Bookが存在しない、削除済み、またはログイン中ユーザーの所有Bookではない場合。
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "Resource not found"
+  }
+}
+```
+---
+## 10. 本番確認済み挙動
+本番環境で以下を確認済み。
+- キーワード検索
+  - `GET /api/books/:book_id/notes_search?q=Rails&page=1&limit=10`
+  - `200 OK`
+  - キーワードに一致するNoteのみ返却
+- ページ範囲検索
+  - `GET /api/books/:book_id/notes_search?page_from=10&page_to=20&page=1&limit=10`
+  - `200 OK`
+  - 指定したページ範囲に一致するNoteのみ返却
+- 該当なし検索
+  - `GET /api/books/:book_id/notes_search?q=nonexistentkeyword&page=1&limit=10`
+  - `200 OK`
+  - `notes: []`
+- 不正なクエリパラメータ
+  - `GET /api/books/:book_id/notes_search?page=abc&limit=10`
+  - `400 Bad Request`
+- 他ユーザーBookへのSearch
+  - `404 Not Found`
+  - 所有権情報を露出しない
+---
