@@ -1,84 +1,63 @@
-## Official Repository
+# Reading Notes Backend API
 
-Primary repository:
+読書中の引用・メモを管理する、Ruby on Rails API mode製のバックエンドAPIです。
+
+単なるCRUDではなく、以下を実装し、ユーザー単位のデータ保護と不正データの永続化防止を重視しています。
+
+- Bearer Token認証
+- ログイン中ユーザーを起点とした所有者境界
+- Rails validationとDB制約によるデータ整合性
+- 一括登録時の全件成功・全件失敗
+- RSpecによる正常系・異常系・回帰テスト
+
+
+## Technical Highlights
+
+| 防ぐ問題 | 設計・実装 |
+|---|---|
+| raw tokenのDB流出 | クライアントにはraw tokenを返し、DBにはSHA256 digestのみ保存 |
+| 他ユーザー・削除済みBookへのアクセス | 所有者境界として `current_user.books.alive.find(...)` を起点に取得し、対象外は404として処理 |
+| 不正データの永続化 | Rails validationに加えてNOT NULL・FK・CHECK制約を設定 |
+| 一括登録時の部分保存 | transactionにより全件成功または全件失敗を保証 |
+| エラーレスポンスのばらつき | `ApplicationController`で主要例外を共通JSON形式へ変換 |
+
+## For Technical Reviewers
+
+Backend READMEでは、以下を確認できます。
+
+- 認証・所有者境界・DB制約の設計判断
+- 対応するController・Model・migration・RSpec
+- 本番環境での3分評価ルート
+
+**[Backend READMEで実装・設計・RSpecを確認する](backend/README.md)**
+
+## Tech Stack
+
+- Ruby 3.2.2
+- Ruby on Rails 8.0.4（API mode）
+- PostgreSQL 16
+- RSpec
+- Docker / Docker Compose
+- Fly.io
+- Neon
+
+## Production
+
+### Health Check
+
+```bash
+curl -i https://backend-withered-voice-4962.fly.dev/healthz
+```
+
+## Repository
+
+Canonical repository:
+
 https://github.com/ponio-ponix/reading-notes
 
 This repository is the canonical and actively maintained source.
 
-# reading-notes (Backend API)
-
-読書中の引用・メモを **安全に保存し、後から高速に検索できる**  
-**信頼性重視のRailsバックエンドAPI**。
-**DB制約・一貫したエラーレスポンス・トランザクション整合性** を重視して実装。
-
-## What this is
-
-- **Books** を作成し、各Bookに紐づく **Notes**（quote/memo/page）を登録
-- Notes の **検索**（キーワード / ページ範囲）
-- Notes の **一括登録**（トランザクションで全成功/全失敗）
-
-## Tech stack
-
-- Ruby 3.2.2 / Rails 8.0.4 (API mode)
-- PostgreSQL 16
-- Fly.io（production hosting）
-- Neon（serverless PostgreSQL）
-- Docker（reproducible runtime）
-- RSpec（`64 examples, 0 failures`）
-
-## Design highlights (why it’s “safe”)
-
-- **Soft delete**: Book は `deleted_at` による論理削除（履歴保持）
-- **Referential integrity**: `notes.book_id → books.id` は **FK + ON DELETE RESTRICT**
-  - Note がある Book の誤削除を防止
-- **DB-level validation**: `quote <= 1000`, `memo <= 2000` を **CHECK 制約**で防御
-- **Bulk create atomicity**: 一括登録はトランザクションで **全件成功 or 全件失敗**
-
-## Quick start (Docker)
-
-```bash
-# Start
-docker compose up --build
-
-# Migrate (first time only)
-docker compose exec web bin/rails db:migrate
-
-```
-
-
-## Smoke test
-```bash
-curl -i http://localhost:3000/api/books
-```
-
----
-
-## 📘 Documentation
-
-API contract (SSOT): [`backend/docs/40_api/api_overview.md`](backend/docs/40_api/api_overview.md)  
-仕様や技術設計の詳細は: [`backend/README.md`](backend/README.md)
-
----
-
-## Live Demo
-
-- このバックエンドは **API専用サーバー** です。ブラウザのトップページ（`/`）には画面は表示されません。
-
-### Health check
-https://backend-withered-voice-4962.fly.dev/healthz
-- → `{ "ok": true }` が返れば本番稼働中です。
-
-### Books API
-https://backend-withered-voice-4962.fly.dev/api/books
-
-
-### Quick smoke test
-
-```bash
-curl -i https://backend-withered-voice-4962.fly.dev/api/books
-```
-
-**本プロジェクトは、機能の多さよりもデータ整合性を優先し、小さくても信頼できるバックエンドAPIの実現を目的として設計しました。**
+## License
 
 MIT License
 
