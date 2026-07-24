@@ -12,12 +12,8 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
         post "/api/auth/session", params: { email: user.email, password: "password" }, as: :json
         expect(response).to have_http_status(:ok)
 
-        puts response.body
-
-  
         body = JSON.parse(response.body)
 
-        puts body["token"]
         expect(body["token"]).to be_present
       end
 
@@ -34,14 +30,12 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
         # 
 
         body = JSON.parse(response.body)
-        puts "トークンの内容 #{body["token"]}"
 
         responseDigest = Digest::SHA256.hexdigest(body["token"])
 
         user1 = User.find_by(email: user.email)
 
         user_AccessToken = AccessToken.find_by(user: user1)
-        puts "digest #{user_AccessToken.token_digest}"
 
         expect(body["token"]).not_to eq(user_AccessToken.token_digest)
         expect(responseDigest).to eq(user_AccessToken.token_digest)
@@ -61,7 +55,19 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
 
   describe "DELETE /api/auth/session" do
     context "正常系" do
-      
+      it "logoutができる（有効なBearer Tokenでlogoutした場合、対応するAccessTokenのrevoked_atがnilから日時へ変わる" do
+        
+        post "/api/auth/session", params: { email: user.email, password: "password" }, as: :json
+        token = JSON.parse(response.body).fetch("token")
+
+        digest = Digest::SHA256.hexdigest(token)
+
+        delete "/api/auth/session", headers: { "Authorization" => "Bearer #{token}" }
+
+        accessModel = AccessToken.find_by(token_digest: digest)
+        expect(accessModel.revoked_at).to be_a(ActiveSupport::TimeWithZone)
+
+      end
     end
 
     context "異常系" do
@@ -92,11 +98,8 @@ RSpec.describe "Api::Auth::Session", type: :request, auth: :real do
           post "/api/auth/session", params: { email: "", password: "password" }, as: :json
         }.not_to change(AccessToken, :count)
 
-        expect(response).to have_http_status(:unauthorized)
-                
-      end 
-            
+        expect(response).to have_http_status(:unauthorized)      
+      end     
     end 
-
   end
 end
