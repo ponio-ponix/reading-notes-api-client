@@ -19,7 +19,7 @@ RSpec.describe "Authentication", type: :request, auth: :real do
     let(:password) { "password" }
 
     context "正常系" do
-      it "returns 200 with valid Bearer token" do
+      it "有効なBearer Tokenでは200を返す" do
         token = login_and_get_token
   
         get "/api/books",
@@ -31,31 +31,29 @@ RSpec.describe "Authentication", type: :request, auth: :real do
     end
 
     context "異常系" do
-      it "returns 401 without Authorization header" do
+      it "Authorization headerがない場合は401を返す" do
         get "/api/books"
   
         expect(response).to have_http_status(:unauthorized)
-        puts response.body
       end
 
-      it "authorizationのtokenがクライアントからのrawの情報でない場合" do
+      it "保存済みdigestに一致しないBearer Tokenでは401を返す" do
         get "/api/books",
           headers: { "Authorization" => "Bearer aaaaaaooooo" },
           as: :json
-        puts response.body
 
         expect(response).to have_http_status(:unauthorized)
       end
 
-      it "Authorization header が Bearer のみのとき 401" do
+      it "BearerのみでTokenがない場合は401を返す" do
         get "/api/books",
-        headers: { "Authorization" => "Bearer " },
-        as: :json
+          headers: { "Authorization" => "Bearer " },
+          as: :json
 
         expect(response).to have_http_status(:unauthorized)
       end
 
-      it "Authorization header が Bearer ではあるが、token が active 条件を満たさないとき 401" do
+      it "期限切れのBearer Tokenでは401を返す" do
 
         user = User.create!(email: email, password: password)
   
@@ -69,16 +67,13 @@ RSpec.describe "Authentication", type: :request, auth: :real do
         )
   
         get "/api/books",
-        headers: { "Authorization" => "Bearer #{raw}"},
-        as: :json
+          headers: { "Authorization" => "Bearer #{raw}"},
+          as: :json
   
         expect(response).to have_http_status(:unauthorized)
-
-        puts response.body
-  
       end
 
-      it "revoked_atが設定されたtokenでGET /api/booksが401になること" do
+      it "失効済みのBearer Tokenでは401を返す" do
         token = login_and_get_token
   
         get "/api/books",
@@ -90,9 +85,7 @@ RSpec.describe "Authentication", type: :request, auth: :real do
 
         find_token.update!(revoked_at: Time.current)
 
-        get "/api/books",
-
-            headers: { "Authorization" => "Bearer #{token}" }
+        get "/api/books", headers: { "Authorization" => "Bearer #{token}" }
         expect(response).to have_http_status(:unauthorized)
       end
     end
