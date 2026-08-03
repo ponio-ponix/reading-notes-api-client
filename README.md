@@ -10,6 +10,45 @@
 - 一括登録時の全件成功・全件失敗
 - RSpecによる正常系・異常系・回帰テスト
 
+## Development Background
+
+このAPIは読書メモ管理機能から開発を開始しました。
+
+機能追加を進める中で、単純に機能を増やすだけではなく、
+変更時の影響範囲や既存機能との整合性を確認しながら改善を行いました。
+
+### Change Case: Soft Delete / Access Boundary Improvement
+
+#### 課題
+
+既存APIを調査した結果、同じBookを扱う処理でも、
+Book取得や所有権確認の方法が統一されていませんでした。
+
+この状態では、今後API追加や仕様変更を行った際に、
+処理ごとに異なる境界ルールが発生する可能性がありました。
+
+#### 判断・対応
+
+新規機能追加を進める前に、各APIで境界確認の方法が分かれたまま機能を増やすと、
+後から修正範囲が広がりやすいと考えました。
+
+そのため、変更コストや影響範囲を考慮し、
+先にBook取得の入口を整理することを優先しました。
+
+Controller入口で `current_user.books.alive.find(...)` を起点に所有権・削除状態を確認し、
+Serviceには確認済みのBookを渡す構造へ整理しました。
+
+また、Book削除は物理削除ではなく論理削除として実装し、
+削除後のデータ状態を管理できるようにしました。
+
+#### 価値
+
+既存APIの境界を揃えることで、変更時に影響範囲を把握しやすくし、
+今後の仕様変更や機能追加でも、同じ境界ルールを適用しながら
+安全に改善を続けられる土台を整えました。
+
+詳細な実装・RSpecは [Backend README](backend/README.md) に整理しています。  
+関連PR: [#27 Soft Delete / Access Boundary Improvement](https://github.com/ponio-ponix/reading-notes-api-client/pull/27)
 
 ## Technical Highlights
 
