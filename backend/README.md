@@ -54,6 +54,28 @@ curl -i https://backend-withered-voice-4962.fly.dev/healthz
 
 ---
 
+## Change Case: Soft Delete / Access Boundary Improvement
+
+関連PR: [#27 Soft Delete / Access Boundary Improvement](https://github.com/ponio-ponix/reading-notes-api-client/pull/27)
+
+この変更では、Bookを扱う各APIで所有者境界・削除状態の確認方法が分散しないよう、
+Controller入口で `current_user.books.alive.find(...)` を起点にBookを取得する構造へ整理しました。
+
+これにより、他ユーザーのBook、削除済みBook、存在しないBookを同じ `404 Not Found` として扱い、
+Notes系処理には確認済みのBookを渡す構成にしています。
+
+確認先:
+
+- [`app/controllers/api/books_controller.rb`](app/controllers/api/books_controller.rb)
+- [`app/controllers/api/notes_controller.rb`](app/controllers/api/notes_controller.rb)
+- [`app/controllers/api/notes_bulk_controller.rb`](app/controllers/api/notes_bulk_controller.rb)
+- [`app/controllers/api/notes_search_controller.rb`](app/controllers/api/notes_search_controller.rb)
+- [`app/models/book.rb`](app/models/book.rb)
+- [`spec/requests/api/books_spec.rb`](spec/requests/api/books_spec.rb)
+- [`spec/requests/api/notes_bulk_spec.rb`](spec/requests/api/notes_bulk_spec.rb)
+
+---
+
 ## Design Decisions
 
 ### Bearer Token認証
