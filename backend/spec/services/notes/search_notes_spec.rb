@@ -106,6 +106,17 @@ RSpec.describe Notes::SearchNotes, type: :service do
       expect(notes.size).to         eq 5
     end
 
+    describe '検索結果の並び順とページネーションの安定性' do
+      it '1ページ目と2ページ目で同じNote IDが返されない' do
+      end
+
+      it 'created_atが同じNotesはIDの昇順で返される' do
+      end
+
+      it 'created_atが異なるNotesは新しい日時の順に返される' do
+      end
+    end
+
     it 'page_from / page_to でページ範囲を絞り込む' do
       note_low = Note.create!(book: book, page: 5,  quote: "low",  memo: "m")
       note_mid = Note.create!(book: book, page: 15, quote: "mid",  memo: "m")
