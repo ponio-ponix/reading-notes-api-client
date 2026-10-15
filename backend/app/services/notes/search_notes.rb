@@ -96,7 +96,7 @@ module Notes
       offset = (page - 1) * per
 
       records = rel
-        .order(created_at: :desc)
+        .order(created_at: :desc, id: :asc)
         .offset(offset)
         .limit(per)
 
