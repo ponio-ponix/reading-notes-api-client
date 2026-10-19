@@ -14,6 +14,9 @@ Rails.application.routes.draw do
       resource :session, only: [:create, :destroy]
     end
     resources :users, only: [:create]
+
+    resources :external_book_searches, only: [:index]
+
   end
   
   if Rails.env.development?

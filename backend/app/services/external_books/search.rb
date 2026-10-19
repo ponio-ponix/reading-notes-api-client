@@ -1,7 +1,6 @@
 module ExternalBooks
   class Search
     def self.call(query:)
-      puts query
 
       uri = URI("https://www.googleapis.com/books/v1/volumes")
 
@@ -29,9 +28,9 @@ module ExternalBooks
           title = item["volumeInfo"]["title"]
           authors = item["volumeInfo"]["authors"]
 
-          arr << { title: title, author: authors.join("・") }
-
-          arr.push()
+          if title.present?
+            arr << { title: title, author: authors.present? ? authors.join("・") : nil}
+          end
       end
 
       arr
