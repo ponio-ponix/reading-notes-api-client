@@ -13,7 +13,12 @@ class ApplicationController < ActionController::API
   rescue_from ActiveRecord::RecordNotDestroyed, with: :render_unprocessable_entity
 
   rescue_from Net::OpenTimeout, with: :render_service_unavailable
-
+  rescue_from Net::ReadTimeout, with: :render_service_unavailable
+  rescue_from Errno::ECONNREFUSED, with: :render_service_unavailable
+  rescue_from ExternalBooks::Search::SearchError, with: :render_service_unavailable
+  rescue_from JSON::ParserError, with: :render_service_unavailable
+  
+  
   # DB制約系（422で返す）
   rescue_from ActiveRecord::NotNullViolation, with: :render_db_constraint_violation
   rescue_from ActiveRecord::InvalidForeignKey, with: :render_db_constraint_violation

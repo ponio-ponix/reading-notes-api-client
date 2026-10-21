@@ -1,5 +1,7 @@
 module ExternalBooks
   class Search
+    class SearchError < StandardError
+    end
     def self.call(query:)
 
       uri = URI("https://www.googleapis.com/books/v1/volumes")
@@ -20,6 +22,10 @@ module ExternalBooks
         http.get(uri.request_uri)
       end
 
+      if response.code == "429" || response.code == "500" || response.code == "503"
+        raise ExternalBooks::Search::SearchError
+      end
+  
       data = JSON.parse(response.body)
 
       arr = []
