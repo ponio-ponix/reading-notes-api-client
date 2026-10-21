@@ -12,6 +12,13 @@ class ApplicationController < ActionController::API
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity
   rescue_from ActiveRecord::RecordNotDestroyed, with: :render_unprocessable_entity
 
+  rescue_from Net::OpenTimeout, with: :render_service_unavailable
+  rescue_from Net::ReadTimeout, with: :render_service_unavailable
+  rescue_from Errno::ECONNREFUSED, with: :render_service_unavailable
+  rescue_from ExternalBooks::Search::SearchError, with: :render_service_unavailable
+  rescue_from JSON::ParserError, with: :render_service_unavailable
+  
+  
   # DB制約系（422で返す）
   rescue_from ActiveRecord::NotNullViolation, with: :render_db_constraint_violation
   rescue_from ActiveRecord::InvalidForeignKey, with: :render_db_constraint_violation
@@ -120,5 +127,11 @@ class ApplicationController < ActionController::API
       status: :unprocessable_entity,
       details: record.errors.full_messages
     )
+  end
+  
+  # 503 Service Unavailable error
+  def render_service_unavailable(e)
+    logger.warn "[503] #{e.class}: #{e.message}"
+    render_error(code: "service_unavailable", message: "Service Unavailable", status: :service_unavailable)
   end
 end
