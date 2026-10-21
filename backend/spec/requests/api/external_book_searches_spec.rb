@@ -31,6 +31,23 @@ RSpec.describe 'External Book Searches API', type: :request do
         
       end
 
+      it '検索結果が0件でitemsキーがない場合、200 OKと空配列を返す' do
+        allow(ENV).to receive(:fetch).with("BOOKS_API_KEY").and_return("test-api-key")
+        stub_request(:get, "https://www.googleapis.com/books/v1/volumes")
+          .with(query: { q: "嫌われる勇気", maxResults: "5", key: "test-api-key" })
+          .to_return(
+            status: 200,
+            body: { totalItems: 0 }.to_json,
+            headers: { "Content-Type" => "application/json" }
+          )
+        
+        get "/api/external_book_searches", params: { query: "嫌われる勇気" }
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq([])
+        
+      end
+
       it '検索するだけではBookレコードを作成しない' do
         allow(ENV).to receive(:fetch).with("BOOKS_API_KEY").and_return("test-api-key")
         stub_request(:get, "https://www.googleapis.com/books/v1/volumes")

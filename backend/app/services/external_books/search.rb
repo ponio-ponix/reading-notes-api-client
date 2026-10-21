@@ -30,13 +30,16 @@ module ExternalBooks
 
       arr = []
 
-      data["items"].each do |item|
-          title = item["volumeInfo"]["title"]
-          authors = item["volumeInfo"]["authors"]
+      if data["items"] != nil
 
-          if title.present?
-            arr << { title: title, author: authors.present? ? authors.join("・") : nil}
-          end
+        data["items"].each do |item|
+            title = item["volumeInfo"]["title"]
+            authors = item["volumeInfo"]["authors"]
+
+            if title.present?
+              arr << { title: title, author: authors.present? ? authors.join("・") : nil}
+            end
+        end
       end
 
       arr
