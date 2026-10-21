@@ -69,6 +69,14 @@ RSpec.describe 'External Book Searches API', type: :request do
       it '外部APIがタイムアウトした場合、503を返す' do
       # 条件：検索Serviceでタイムアウトが発生する
       # 期待結果：HTTP 503と検索失敗のJSONを返す
+        allow(ENV).to receive(:fetch).with("BOOKS_API_KEY").and_return("test-api-key")
+        stub_request(:get, "https://www.googleapis.com/books/v1/volumes")
+          .with(query: { q: "嫌われる勇気", maxResults: "5", key: "test-api-key" })
+          .to_raise(Net::OpenTimeout)
+
+        get "/api/external_book_searches", params: { query: "嫌われる勇気" }
+        expect(response).to have_http_status(:service_unavailable)
+      # 
       end
     end
 
