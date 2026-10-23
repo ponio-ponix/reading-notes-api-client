@@ -1,103 +1,51 @@
 # Reading Notes Backend API
 
-読書中の引用・メモを管理する、Ruby on Rails API mode製のバックエンドAPIです。
+**Ruby on Rails / PostgreSQL / RSpec**
 
-単なるCRUDではなく、以下を実装し、ユーザー単位のデータ保護と不正データの永続化防止を重視しています。
+読書メモ管理用のRails APIです。既存バックエンドの保守・機能追加を意識し、**既存機能の調査・改善、外部API連携、異常系テスト**に取り組みました。
 
-- Bearer Token認証
-- ログイン中ユーザーを起点とした所有者境界
-- Rails validationとDB制約によるデータ整合性
-- 一括登録時の全件成功・全件失敗
-- RSpecによる正常系・異常系・回帰テスト
+## Development Examples
 
-## Development Background
+### 1. 既存APIの改善 — 所有者境界・論理削除
 
-このAPIは読書メモ管理機能から開発を開始しました。
+**課題：** Bookを扱うAPIごとに、所有権・削除状態の確認方法が統一されていませんでした。
 
-機能追加を進める中で、単純に機能を増やすだけではなく、
-変更時の影響範囲や既存機能との整合性を確認しながら改善を行いました。
+**対応：** `current_user.books.alive.find(...)` を取得起点に統一し、他ユーザー・削除済みBookへのアクセスを404として扱う構造へ整理しました。
 
-### Change Case: Soft Delete / Access Boundary Improvement
+**確認先：** [PR #27：実装・RSpec](https://github.com/ponio-ponix/reading-notes-api-client/pull/27)
 
-#### 課題
+### 2. 既存APIへの機能追加 — Google Books API連携
 
-既存APIを調査した結果、同じBookを扱う処理でも、
-Book取得や所有権確認の方法が統一されていませんでした。
+**課題：** 書籍検索機能の追加にあたり、外部サービスの障害時にも想定したレスポンスを返す必要がありました。
 
-この状態では、今後API追加や仕様変更を行った際に、
-処理ごとに異なる境界ルールが発生する可能性がありました。
+**対応：** タイムアウト・接続拒否・429/500/503・不正JSONをWebMockで再現し、503を返す動作をRSpecで検証。検索処理とDB保存も分離し、既存のBook登録APIを再利用しました。
 
-#### 判断・対応
+**確認先：** [Issue #35：要求・仕様](https://github.com/ponio-ponix/reading-notes-api-client/issues/35) / [PR #36：実装・RSpec](https://github.com/ponio-ponix/reading-notes-api-client/pull/36)
 
-新規機能追加を進める前に、各APIで境界確認の方法が分かれたまま機能を増やすと、
-後から修正範囲が広がりやすいと考えました。
+## Other Implementations
 
-そのため、変更コストや影響範囲を考慮し、
-先にBook取得の入口を整理することを優先しました。
-
-Controller入口で `current_user.books.alive.find(...)` を起点に所有権・削除状態を確認し、
-Serviceには確認済みのBookを渡す構造へ整理しました。
-
-また、Book削除は物理削除ではなく論理削除として実装し、
-削除後のデータ状態を管理できるようにしました。
-
-#### 価値
-
-既存APIの境界を揃えることで、変更時に影響範囲を把握しやすくし、
-今後の仕様変更や機能追加でも、同じ境界ルールを適用しながら
-安全に改善を続けられる土台を整えました。
-
-詳細な実装・RSpecは [Backend README](backend/README.md) に整理しています。  
-関連PR: [#27 Soft Delete / Access Boundary Improvement](https://github.com/ponio-ponix/reading-notes-api-client/pull/27)
-
-## Technical Highlights
-
-| 防ぐ問題 | 設計・実装 |
+| 領域 | 実装・検証内容 |
 |---|---|
-| raw tokenのDB流出 | クライアントにはraw tokenを返し、DBにはSHA256 digestのみ保存 |
-| 他ユーザー・削除済みBookへのアクセス | 所有者境界として `current_user.books.alive.find(...)` を起点に取得し、対象外は404として処理 |
-| 不正データの永続化 | Rails validationに加えてNOT NULL・FK・CHECK制約を設定 |
-| 一括登録時の部分保存 | transactionにより全件成功または全件失敗を保証 |
-| エラーレスポンスのばらつき | `ApplicationController`で主要例外を共通JSON形式へ変換 |
+| 認証 | Bearer Token認証、Tokenのdigest保存・失効管理 |
+| データ整合性 | Rails validation・DB制約（NOT NULL / FK / CHECK） |
+| 一括登録 | transactionによる全件成功・全件失敗 |
+| テスト | RSpecによる正常系・異常系・回帰確認 |
 
-## For Technical Reviewers
+## Technical Review
 
-Backend READMEでは、以下を確認できます。
+実装内容や設計判断の詳細は、Backend READMEにまとめています。
 
-- 認証・所有者境界・DB制約の設計判断
-- 対応するController・Model・migration・RSpec
-- 本番環境での3分評価ルート
+- **設計判断**：なぜその構成・実装方法を選んだのか
+- **実装コード**：対応するController・Service・Model
+- **テスト**：正常系・異常系を検証したRSpec
+- **動作確認**：本番環境でのAPI確認手順
 
-**[Backend READMEで実装・設計・RSpecを確認する](backend/README.md)**
+**[Backend README（backend/README.md）を見る — 設計判断・実装・テストの詳細](https://github.com/ponio-ponix/reading-notes-api-client/blob/main/backend/README.md)**
 
-## Tech Stack
+## Production / Repository
 
-- Ruby 3.2.2
-- Ruby on Rails 8.0.4（API mode）
-- PostgreSQL 16
-- RSpec
-- Docker / Docker Compose
-- Fly.io
-- Neon
-
-## Production
-
-### Health Check
-
-```bash
-curl -i https://backend-withered-voice-4962.fly.dev/healthz
-```
-
-## Repository
-
-Canonical repository:
-
-https://github.com/ponio-ponix/reading-notes
-
-This repository is the canonical and actively maintained source.
+- [本番環境：Health Check](https://backend-withered-voice-4962.fly.dev/healthz)
 
 ## License
 
 MIT License
-
-Copyright (c) 2026 Kaoru Matsumoto

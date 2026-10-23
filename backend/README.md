@@ -2,7 +2,7 @@
 
 読書中の引用・メモを管理する、Ruby on Rails API mode製のバックエンドAPIです。
 
-Bearer Token認証、ログイン中ユーザーを起点とした所有者境界、Rails validationとDB制約、Note一括登録時のtransaction、RSpecによる主要な正常系・異常系・回帰確認を実装しています。
+Bearer Token認証、ログイン中ユーザーを起点とした所有者境界、Rails validationとDB制約、Note一括登録時のtransaction、Google Books APIを利用した書籍検索、RSpecによる主要な正常系・異常系・回帰確認を実装しています。
 
 このREADMEは、技術評価者が短時間で主要な設計判断と根拠コードへ到達できることを目的としています。
 
@@ -18,6 +18,8 @@ Bearer Token認証、ログイン中ユーザーを起点とした所有者境�
 - `current_user` を起点とした所有者境界
 - Rails validationとDB制約によるデータ整合性
 - Note一括登録時の全件成功・全件失敗
+- Google Books API検索とBook永続化の分離
+- 外部API障害を共通の503へ変換するエラーハンドリング
 - 共通エラーレスポンスとRSpec
 
 ### 2. 主要な設計・コード・specを確認
@@ -50,6 +52,7 @@ curl -i https://backend-withered-voice-4962.fly.dev/healthz
 | 他ユーザー・削除済みBookへアクセスできる | `current_user.books.alive.find(...)` を取得起点にし、他人・削除済み・不存在を404として扱う | [`BooksController`](app/controllers/api/books_controller.rb) / [`NotesController`](app/controllers/api/notes_controller.rb) / [`NotesBulkController`](app/controllers/api/notes_bulk_controller.rb) / [`NotesSearchController`](app/controllers/api/notes_search_controller.rb) / [`Book`](app/models/book.rb) | [`books_spec`](spec/requests/api/books_spec.rb) / [`notes_bulk_spec`](spec/requests/api/notes_bulk_spec.rb) | [Note削除時の認可境界](docs/30_architecture/notes_destroy_authorization.md) / [論理削除ポリシー](docs/20_design/soft_delete_policy.md) |
 | applicationの不具合により不正データが永続化される | Rails validationに加えてNOT NULL・FK・CHECK制約を設定する | [`User`](app/models/user.rb) / [`Book`](app/models/book.rb) / [`Note`](app/models/note.rb) / [`AccessToken`](app/models/access_token.rb) / [`migrations`](db/migrate/) / [`schema.rb`](db/schema.rb) | [`note_spec`](spec/models/note_spec.rb)（model validation） | [DB制約設計](docs/30_architecture/db_constraints.md) / [不変条件](docs/30_architecture/invariants.md) |
 | Note一括登録で一部だけ保存される | Note一括登録全体をtransaction境界に置き、1件でも失敗した場合は保存件数を0件にする | [`NotesBulkController`](app/controllers/api/notes_bulk_controller.rb) / [`Notes::BulkCreate`](app/services/notes/bulk_create.rb) | [`notes_bulk_spec`](spec/requests/api/notes_bulk_spec.rb) / [`bulk_create_spec`](spec/services/notes/bulk_create_spec.rb) | [transaction境界](docs/30_architecture/transaction_boundary.md) / [Bulk API contract](docs/40_api/api_contracts/bulk_create_notes.md) / [Service層の責務](docs/30_architecture/service_layer_notes.md) |
+| 外部API障害が内部エラーとして返る／検索だけでBookが保存される | Google Books APIへの通信・変換をServiceへ分離し、主要な外部障害を共通の503へ変換する。検索と永続化を分け、検索時はDBへ保存しない | [`ExternalBookSearchesController`](app/controllers/api/external_book_searches_controller.rb) / [`ExternalBooks::Search`](app/services/external_books/search.rb) / [`ApplicationController`](app/controllers/application_controller.rb) | [`external_book_searches_spec`](spec/requests/api/external_book_searches_spec.rb) / [`ExternalBooks::Search spec`](spec/services/external_books/search_spec.rb) | [Issue #35](https://github.com/ponio-ponix/reading-notes-api-client/issues/35) / [PR #36](https://github.com/ponio-ponix/reading-notes-api-client/pull/36) |
 | Controllerごとにエラー形式がばらつく | `ApplicationController` の `rescue_from` で主要例外を共通JSON形式へ変換する | [`ApplicationController`](app/controllers/application_controller.rb) / [`ApplicationErrors`](app/errors/application_errors.rb) | [`ApplicationController rescue spec`](spec/requests/application_controller_rescue_spec.rb) | [共通エラーハンドリング](docs/30_architecture/error_handling.md) |
 
 ---
@@ -73,6 +76,39 @@ Notes系処理には確認済みのBookを渡す構成にしています。
 - [`app/models/book.rb`](app/models/book.rb)
 - [`spec/requests/api/books_spec.rb`](spec/requests/api/books_spec.rb)
 - [`spec/requests/api/notes_bulk_spec.rb`](spec/requests/api/notes_bulk_spec.rb)
+
+---
+
+## Change Case: Google Books API Integration
+
+関連Issue: [#35 書籍情報を手入力せずに検索できるようにしたい](https://github.com/ponio-ponix/reading-notes-api-client/issues/35)
+
+関連PR: [#36 feat: add Google Books search API (#35)](https://github.com/ponio-ponix/reading-notes-api-client/pull/36)
+
+書籍情報の手入力を減らすため、Google Books APIからタイトル・著者の候補を最大5件取得する、認証付きの検索APIを追加しました。
+
+外部APIへの通信とレスポンスの変換は `ExternalBooks::Search`、入力確認とHTTPレスポンスは `ExternalBookSearchesController` が担当します。タイトルがない候補は除外し、著者がない候補は `author: null` として返します。検索結果が0件の場合と `items` キーがない場合は、いずれも `200 OK` と空配列を返します。
+
+検索と永続化は分離しています。検索しただけではBookレコードを作成せず、利用者が選んだ候補のタイトル・著者を既存のBook登録APIへ送ることで保存します。Request specでは、検索時にDBへ保存されないことと、検索結果を既存APIで保存できることを確認しています。
+
+外部APIの主要な失敗は、以下を共通の `503 Service Unavailable` へ変換してログへ記録します。
+
+- 接続タイムアウト（`Net::OpenTimeout`）
+- 読み取りタイムアウト（`Net::ReadTimeout`）
+- 接続拒否（`Errno::ECONNREFUSED`）
+- Google Books APIの `429`・`500`・`503`
+- 不正JSON（`JSON::ParserError`）
+
+外部通信はWebMockでスタブし、Service specで検索結果の変換・欠損データ・例外の伝播を、Request specで認証・入力不正・503変換・検索と永続化の分離を検証しています。
+
+確認先:
+
+- [`app/controllers/api/external_book_searches_controller.rb`](app/controllers/api/external_book_searches_controller.rb)
+- [`app/services/external_books/search.rb`](app/services/external_books/search.rb)
+- [`app/controllers/application_controller.rb`](app/controllers/application_controller.rb)
+- [`config/routes.rb`](config/routes.rb)
+- [`spec/requests/api/external_book_searches_spec.rb`](spec/requests/api/external_book_searches_spec.rb)
+- [`spec/services/external_books/search_spec.rb`](spec/services/external_books/search_spec.rb)
 
 ---
 
@@ -203,8 +239,9 @@ ControllerはHTTP境界とレスポンス生成を担当し、処理本体は `N
 - `404 Not Found`
 - `422 Unprocessable Entity`
 - `500 Internal Server Error`
+- `503 Service Unavailable`
 
-DB制約違反もAPIレスポンスとして扱える形式へ変換し、Controller本体を正常系の処理へ集中させます。
+DB制約違反に加え、外部APIのタイムアウト・接続拒否・対象HTTP status・不正JSONもAPIレスポンスとして扱える形式へ変換し、Controller本体を正常系の処理へ集中させます。
 
 確認先:
 
@@ -271,6 +308,7 @@ Authorization: Bearer <token>
 | DELETE | `/api/books/:book_id/notes/:id` | 必要 | Note削除 |
 | POST | `/api/books/:book_id/notes/bulk` | 必要 | Note一括作成 |
 | GET | `/api/books/:book_id/notes_search` | 必要 | Note検索 |
+| GET | `/api/external_book_searches?query=...` | 必要 | Google Books APIから書籍候補を検索（検索時はDBへ保存しない） |
 
 詳細:
 
@@ -338,7 +376,8 @@ Authorization: Bearer <token>
 | Ruby | 3.2.2 |
 | Rails | 8.0.4 API mode |
 | Database | PostgreSQL 16 |
-| Test | RSpec |
+| External API | Google Books API |
+| Test | RSpec / WebMock |
 | Local environment | Docker / Docker Compose |
 | Production | Fly.io + Neon |
 
@@ -401,6 +440,7 @@ backend/
 │   ├── controllers/api/
 │   │   └── auth/
 │   ├── models/
+│   ├── services/external_books/
 │   ├── services/notes/
 │   └── errors/
 ├── docs/
@@ -410,6 +450,7 @@ backend/
 ├── spec/
 │   ├── requests/api/
 │   ├── requests/auth/
+│   ├── services/external_books/
 │   ├── services/notes/
 │   └── models/
 └── db/
