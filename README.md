@@ -40,15 +40,12 @@
 - **テスト**：正常系・異常系を検証したRSpec
 - **動作確認**：本番環境でのAPI確認手順
 
-**[Backend READMEを見る — 設計判断・実装・テストの詳細](https://github.com/ponio-ponix/reading-notes-api-client/blob/main/backend/README.md)**
+**[Backend README（backend/README.md）を見る — 設計判断・実装・テストの詳細](https://github.com/ponio-ponix/reading-notes-api-client/blob/main/backend/README.md)**
 
 ## Production / Repository
 
 - [本番環境：Health Check](https://backend-withered-voice-4962.fly.dev/healthz)
-- [Canonical Repository](https://github.com/ponio-ponix/reading-notes)
 
 ## License
 
 MIT License
-
-Copyright (c) 2026 Kaoru Matsumoto
